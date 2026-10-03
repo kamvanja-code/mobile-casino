@@ -39,6 +39,7 @@ let currentSelectedChip = 10;
 let bets = { red: 0, black: 0, zero: 0 };
 let isSpinning = false;
 
+// Точная последовательность чисел на колесе европейской рулетки по часовой стрелке
 const rouletteNumbers = [
     { n: 0, c: 'zero' },  { n: 32, c: 'red' },   { n: 15, c: 'black' }, { n: 19, c: 'red' },
     { n: 4, c: 'black' },  { n: 21, c: 'red' },   { n: 2, c: 'black' },  { n: 25, c: 'red' },
@@ -162,15 +163,42 @@ cheatConsoleBtn.addEventListener('click', () => {
 let wheelRotation = 0;
 spinBtn.addEventListener('click', () => {
     if (isSpinning) return; const activeBet = bets.red + bets.black + bets.zero; if (activeBet === 0) { statusMessage.textContent = "СДЕЛАЙТЕ СТАВКУ НА СУКНО"; return; }
+
     isSpinning = true; toggleControls(true); document.querySelectorAll('.bet-spot').forEach(spot => spot.classList.remove('winning-highlight')); statusMessage.textContent = "СТАВКИ СДЕЛАНЫ. КОЛЕСО ЗАПУЩЕНО";
-    const winningIndex = Math.floor(Math.random() * 37); const resultSector = rouletteNumbers[winningIndex]; const duration = 6500; const startTime = performance.now();
-    const wheelTargetAngle = winningIndex * sectorDegrees; const wheelSpins = 2160; const startWheelAngle = wheelRotation; const endWheelAngle = wheelRotation + wheelSpins + (360 - wheelTargetAngle); wheelRotation = endWheelAngle;
-    wheel.style.transform = 'rotate(' + wheelRotation + 'deg)'; ball.classList.remove('hidden'); let lastTickAngle = 0;
+
+    // 1. Выбираем случайный выигрышный сектор
+    const winningIndex = Math.floor(Math.random() * 37);
+    const resultSector = rouletteNumbers[winningIndex];
+
+    const duration = 6500; const startTime = performance.now();
+    const wheelSpins = 2160; // 6 полных оборотов
+
+    // Математический расчет: указатель стоит вверху (0 градусов).
+    // Чтобы сектор оказался под указателем, колесо должно повернуться в обратную от индекса сторону.
+    const targetAngle = (360 - (winningIndex * sectorDegrees)) % 360;
+
+    const startWheelAngle = wheelRotation;
+    const endWheelAngle = wheelRotation + wheelSpins + targetAngle;
+    wheelRotation = endWheelAngle;
+
+    wheel.style.transform = 'rotate(' + wheelRotation + 'deg)';
+    ball.classList.remove('hidden');
+    let lastTickAngle = 0;
 
     function animateSimulation(now) {
-        const elapsed = now - startTime; const progress = Math.min(elapsed / duration, 1); const easeOutQuint = 1 - Math.pow(1 - progress, 5); const currentWheelPos = startWheelAngle + (endWheelAngle - startWheelAngle) * easeOutQuint;
-        const ballExtraOrbits = 1080; const currentBallExtra = ballExtraOrbits * Math.pow(1 - progress, 2.5); const currentBallPos = ((currentWheelPos % 360) + wheelTargetAngle + 180) - currentBallExtra; const currentRadius = 96 - (31 * easeOutQuint);
-        ball.style.transform = 'translate(-50%, -50%) rotate(' + currentBallPos + 'deg) translate(' + currentRadius + 'px) rotate(' + (-currentBallPos) + 'deg)';
+        const elapsed = now - startTime; const progress = Math.min(elapsed / duration, 1);
+        const easeOutQuint = 1 - Math.pow(1 - progress, 5);
+
+        const currentWheelPos = startWheelAngle + (endWheelAngle - startWheelAngle) * easeOutQuint;
+
+        // Физика шарика: он запущен в противоположную сторону (против часовой стрелки)
+        const ballExtraOrbits = 1440;
+        const currentBallExtra = ballExtraOrbits * Math.pow(1 - progress, 2.5);
+        const currentBallPos = (currentWheelPos + (ballExtraOrbits - currentBallExtra));
+
+        const currentRadius = 96 - (31 * easeOutQuint);
+        ball.style.transform = 'translate(-50%, -50%) rotate(' + (-currentBallPos) + 'deg) translate(' + currentRadius + 'px) rotate(' + currentBallPos + 'deg)';
+
         const absoluteRelativeAngle = Math.abs(currentBallPos - currentWheelPos);
         if (absoluteRelativeAngle - lastTickAngle >= sectorDegrees) { if (progress < 0.85) AudioEngine.playBallTick(); lastTickAngle = absoluteRelativeAngle; }
         if (progress < 1) { requestAnimationFrame(animateSimulation); } else { finishRound(resultSector); }
@@ -180,8 +208,10 @@ spinBtn.addEventListener('click', () => {
 
 function finishRound(resultSector) {
     let winSum = 0; if (bets[resultSector.c] > 0 && (resultSector.c === 'red' || resultSector.c === 'black')) winSum += bets[resultSector.c] * 2; if (resultSector.c === 'zero' && bets.zero > 0) winSum += bets.zero * 36;
+
     user.balance += winSum; saveSession(); if (winSum > 0) AudioEngine.playWinSound();
     const winningFieldElement = document.querySelector('.spot-' + resultSector.c); if (winningFieldElement) winningFieldElement.classList.add('winning-highlight');
+
     const colorText = resultSector.c === 'red' ? 'КРАСНОЕ' : (resultSector.c === 'black' ? 'ЧЕРНОЕ' : 'ЗЕРО');
     if (winSum > 0) { statusMessage.innerHTML = 'ВЫПАЛО: <span style="color:#ffd700">' + resultSector.n + ' (' + colorText + ')</span>. ВЫИГРЫШ: <span style="color:#22c55e">+$' + winSum + '</span>!'; }
     else { statusMessage.innerHTML = 'ВЫПАЛО: <span style="color:#ffffff">' + resultSector.n + ' (' + colorText + ')</span>. СТАВКА ПРОИГРАЛА.'; }
