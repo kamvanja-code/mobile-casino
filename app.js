@@ -1,49 +1,77 @@
-// --- ИНИЦИАЛИЗАЦИЯ СЕТЕВОГО СИНХРОНИЗАТОРА PUBNUB ---
+// --- СВЕРХСТАБИЛЬНЫЙ СЕТЕВОЙ СИНХРОНИЗАТОР PUBNUB (P2P АРХИТЕКТУРА) ---
 const pubnub = new PubNub({
     publishKey: "pub-c-4dbfe728-6623-455b-801c-fe9ef51a027f",
     subscribeKey: "sub-c-57c2c892-947b-4029-bc55-e40656a84ef9",
-    userId: "casino_guest_" + Math.random().toString(36).substring(2, 9)
+    userId: "casino_user_" + Math.random().toString(36).substring(2, 9)
 });
 
-// Глобальный сетевой массив игроков в оперативной памяти сети
 let globalPlayersDatabase = {};
 
-// Подписываемся на канал обновлений казино
-pubnub.subscribe({ channels: ["grand_velvet_casino_channel_v2"] });
+// Подписываемся на единую сеть казино
+pubnub.subscribe({ channels: ["grand_velvet_network_v3"] });
 
 pubnub.addListener({
     message: function(event) {
-        if (event.message && event.message.type === "sync_update") {
-            // Мгновенно склеиваем данные, прилетевшие со смартфонов других игроков
-            globalPlayersDatabase = Object.assign({}, globalPlayersDatabase, event.message.data);
-            // Сохраняем локальную копию для надежности
-            localStorage.setItem("gv_cloud_backup", JSON.stringify(globalPlayersDatabase));
+        const msg = event.message;
+        if (!msg || !msg.action) return;
+
+        // 1. Кто-то обновил баланс или зарегистрировался
+        if (msg.action === "update_user") {
+            globalPlayersDatabase[msg.name] = {
+                name: msg.name,
+                password: msg.password,
+                balance: parseInt(msg.balance)
+            };
+        }
+        // 2. Новое устройство просит актуальную базу данных
+        else if (msg.action === "request_database") {
+            // Если у нас есть данные, отправляем их просящему
+            if (Object.keys(globalPlayersDatabase).length > 0) {
+                pubnub.publish({
+                    channel: "grand_velvet_network_v3",
+                    message: { action: "share_database", database: globalPlayersDatabase }
+                });
+            }
+        }
+        // 3. Получение полной базы от активных участников сети
+        else if (msg.action === "share_database") {
+            globalPlayersDatabase = Object.assign({}, globalPlayersDatabase, msg.database);
+        }
+        // 4. Административное удаление игрока
+        else if (msg.action === "delete_user") {
+            if (globalPlayersDatabase[msg.name]) {
+                delete globalPlayersDatabase[msg.name];
+                if (window.user && user.name === msg.name) location.reload();
+            }
+        }
+
+        // Постоянно обновляем интерфейс, если мы внутри игры
+        if (window.user && user.name && globalPlayersDatabase[user.name]) {
+            user.balance = globalPlayersDatabase[user.name].balance;
+            const balDisplay = document.getElementById('user-balance');
+            if (balDisplay) balDisplay.textContent = user.balance.toLocaleString();
         }
     }
 });
 
-// Запрос принудительного обновления базы данных у всех игроков в сети
-function broadcastMyData() {
+// Сразу при загрузке страницы просим сеть поделиться актуальной базой
+setTimeout(() => {
     pubnub.publish({
-        channel: "grand_velvet_casino_channel_v2",
-        message: { type: "sync_update", data: globalPlayersDatabase }
+        channel: "grand_velvet_network_v3",
+        message: { action: "request_database" }
     });
-}
+}, 500);
 
-// Загрузка резервной копии при старте сайта
-if (localStorage.getItem("gv_cloud_backup")) {
-    try { globalPlayersDatabase = JSON.parse(localStorage.getItem("gv_cloud_backup")); } catch(e){}
-}
-
-// Первичное скачивание базы (запрос истории канала)
-pubnub.history({
-    channel: "grand_velvet_casino_channel_v2",
-    count: 10
-}, function(status, response) {
+// Загрузка резервной истории канала (если другие устройства сейчас выключены)
+pubnub.history({ channel: "grand_velvet_network_v3", count: 25 }, function(status, response) {
     if (response && response.messages) {
-        response.messages.forEach(msg => {
-            if (msg.entry && msg.entry.type === "sync_update") {
-                globalPlayersDatabase = Object.assign({}, globalPlayersDatabase, msg.entry.data);
+        response.messages.forEach(item => {
+            const msg = item.entry;
+            if (msg && msg.action === "update_user") {
+                globalPlayersDatabase[msg.name] = { name: msg.name, password: msg.password, balance: parseInt(msg.balance) };
+            }
+            if (msg && msg.action === "delete_user" && globalPlayersDatabase[msg.name]) {
+                delete globalPlayersDatabase[msg.name];
             }
         });
     }
@@ -137,7 +165,7 @@ function renderWheelSectors() {
 }
 renderWheelSectors();
 
-// Клубный real-time вход
+// Клубный вход с точечной real-time отправкой
 loginBtn.addEventListener('click', () => {
     AudioEngine.init();
     const name = usernameInput.value.trim().toUpperCase().replace(/[^A-Z0-9_]/g, "");
@@ -156,10 +184,15 @@ loginBtn.addEventListener('click', () => {
             authErrorMsg.textContent = "НЕВЕРНЫЙ ПАРОЛЬ";
         }
     } else {
-        // Ник полностью свободен в мире — мгновенно создаем глобальный аккаунт
+        // Локальной записи нет — создаем игрока точечно в общую сеть
         user = { name: name, password: password, balance: 1000 };
         globalPlayersDatabase[name] = user;
-        broadcastMyData();
+
+        pubnub.publish({
+            channel: "grand_velvet_network_v3",
+            message: { action: "update_user", name: user.name, password: user.password, balance: user.balance }
+        });
+
         enterCasino();
     }
 });
@@ -170,10 +203,11 @@ function enterCasino() {
     setTimeout(() => gameScreen.classList.add('active'), 400);
 }
 
-function saveSession() {
-    globalPlayersDatabase[user.name] = user;
-    localStorage.setItem("gv_cloud_backup", JSON.stringify(globalPlayersDatabase));
-    broadcastMyData(); // Транслируем обновленный баланс всем смартфонам в сети
+function sendBalanceUpdate() {
+    pubnub.publish({
+        channel: "grand_velvet_network_v3",
+        message: { action: "update_user", name: user.name, password: user.password, balance: user.balance }
+    });
 }
 
 function updateInterface() {
@@ -250,25 +284,24 @@ cheatConsoleBtn.addEventListener('click', () => {
     const cleanCode = inputCode.trim().toLowerCase();
 
     if (cleanCode === "cashin") {
-        user.balance += 5000; saveSession(); updateInterface();
+        user.balance += 5000; sendBalanceUpdate(); updateInterface();
         alert("Код активирован! Зачислено +5,000 \$");
     } else if (cleanCode === "cashout") {
-        user.balance = Math.max(0, user.balance - 500); saveSession(); updateInterface();
+        user.balance = Math.max(0, user.balance - 500); sendBalanceUpdate(); updateInterface();
         alert("Код активирован! Списано -500 \$");
     } else if (cleanCode.startsWith("deleteplayer ")) {
         const target = inputCode.substring(13).trim().toUpperCase();
         if (!target) return;
 
-        if (globalPlayersDatabase[target]) {
-            delete globalPlayersDatabase[target];
-            broadcastMyData();
-            alert(`Игрок ${target} полностью удален из мировой сети.`);
-            if (target === user.name) location.reload();
-        } else { alert("Игрок не найден."); }
+        pubnub.publish({
+            channel: "grand_velvet_network_v3",
+            message: { action: "delete_user", name: target }
+        });
+        alert(`Запрос на удаление игрока ${target} отправлен в глобальную сеть.`);
     } else { alert("Неверный VIP-код!"); }
 });
 
-// --- СИНХРОННОЕ ОДНОФАЗНОЕ ЗАТУХАНИЕ СКОРОСТИ ШАРИКА И РУЛЕТКИ ---
+// --- ИДЕАЛЬНОЕ ОДНОФАЗНОЕ ЭКСПОНЕНЦИАЛЬНОЕ ЗАТУХАНИЕ ШАРИКА ---
 let wheelRotation = 0;
 
 spinBtn.addEventListener('click', () => {
@@ -283,11 +316,11 @@ spinBtn.addEventListener('click', () => {
     const winningIndex = Math.floor(Math.random() * 37);
     const resultSector = rouletteNumbers[winningIndex];
 
-    const duration = 6500; // Ровно 6.5 секунд премиального вращения
+    const duration = 6500;
     const startTime = performance.now();
 
     const wheelTargetAngle = winningIndex * sectorDegrees;
-    const wheelSpins = 2160; // 6 полных кругов
+    const wheelSpins = 2160;
 
     const startWheelAngle = wheelRotation;
     const endWheelAngle = wheelRotation + wheelSpins + (360 - wheelTargetAngle);
@@ -315,7 +348,7 @@ spinBtn.addEventListener('click', () => {
         // Математически точная посадка в центр кармана: (Поворот рулетки % 360) + Сектор + Половина круга (180) - Добавочный путь
         const currentBallPos = ((currentWheelPos % 360) + wheelTargetAngle + 180) - currentBallExtra;
 
-        // Идеально гладкое сужение орбиты от бортика (96px) до паза (65px)
+        // Идеологически гладкое сужение орбиты от бортика (96px) до паза (65px)
         const currentRadius = 96 - (31 * easeOutQuint);
 
         ball.style.transform = `translate(-50%, -50%) rotate(${currentBallPos}deg) translate(${currentRadius}px) rotate(${-currentBallPos}deg)`;
@@ -342,7 +375,7 @@ function finishRound(resultSector) {
     if (resultSector.c === 'zero' && bets.zero > 0) winSum += bets.zero * 36;
 
     user.balance += winSum;
-    saveSession();
+    sendBalanceUpdate(); // Мгновенно шлём обновление баланса в общую сеть
 
     if (winSum > 0) AudioEngine.playWinSound();
 
