@@ -1,18 +1,29 @@
-// --- НОВАЯ СВЕРХСТАБИЛЬНАЯ СВЯЗЬ С GOOGLE ТАБЛИЦАМИ (ОБЩЕЕ ОБЛАКО) ---
-// Этот веб-интерфейс синхронизирует балансы, пароли и общую таблицу лидеров для всех устройств в мире.
-const GOOGLE_URL = "https://google.com";
+// --- ВЫДЕЛЕННАЯ СТАБИЛЬНАЯ МИРОВАЯ БАЗА ДАННЫХ ДЛЯ КАЗИНО (БЕЗ ОШИБОК СЕТИ) ---
+// Этот выделенный облачный контейнер объединяет балансы и пароли всех ваших игроков в реальном времени.
+const CLOUD_BIN_ID = "0ba967406a457497d397";
+const CLOUD_URL = `https://npoint.io{CLOUD_BIN_ID}`;
 
-// Функция отправки/получения данных из Google Таблиц
-async function requestGoogleSheets(params) {
+// Запись всей базы игроков в облако
+async function saveToCloud(allPlayersData) {
     try {
-        const queryString = new URLSearchParams(params).toString();
-        // Используем метод GET, так как он никогда не блокируется политикой CORS в браузерах
-        const response = await fetch(`${GOOGLE_URL}?${queryString}&_t=${Date.now()}`);
-        if (!response.ok) return null;
-        return await response.json();
+        await fetch(CLOUD_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(allPlayersData)
+        });
+    } catch (e) { console.error("Ошибка сохранения в облако:", e); }
+}
+
+// Получение списка всех игроков мира
+async function fetchAllPlayers() {
+    try {
+        const response = await fetch(CLOUD_URL);
+        if (!response.ok) return {};
+        const data = await response.json();
+        return data || {};
     } catch (e) {
-        console.error("Критическая ошибка связи с Google Sheets:", e);
-        return null;
+        console.error("Ошибка чтения из облака:", e);
+        return {};
     }
 }
 
@@ -114,7 +125,7 @@ function renderWheelSectors() {
 }
 renderWheelSectors();
 
-// Мировая авторизация через Google Скрипты
+// Мировая авторизация без ошибок сети
 loginBtn.addEventListener('click', async () => {
     AudioEngine.init();
     const name = usernameInput.value.trim().toUpperCase().replace(/[^A-Z0-9_]/g, "");
@@ -126,20 +137,25 @@ loginBtn.addEventListener('click', async () => {
     }
 
     loginBtn.disabled = true;
-    authErrorMsg.textContent = "ПОДКЛЮЧЕНИЕ К ОБЛАКУ GOOGLE...";
+    authErrorMsg.textContent = "ПОДКЛЮЧЕНИЕ К СЕРВЕРУ КАЗИНО...";
 
-    const res = await requestGoogleSheets({ action: "login", name: name, password: password });
+    const allPlayers = await fetchAllPlayers();
 
-    if (res && res.status === "success") {
-        user = { name: name, password: password, balance: parseInt(res.balance) };
-        authErrorMsg.textContent = "";
-        enterCasino();
-    } else if (res && res.status === "wrong_password") {
-        authErrorMsg.textContent = "НЕВЕРНЫЙ ПАРОЛЬ ДЛЯ ДАННОГО VIP-НИКА";
-        loginBtn.disabled = false;
+    if (allPlayers && allPlayers[name]) {
+        if (allPlayers[name].password === password) {
+            user = allPlayers[name];
+            authErrorMsg.textContent = "";
+            enterCasino();
+        } else {
+            authErrorMsg.textContent = "НЕВЕРНЫЙ ПАРОЛЬ ДЛЯ ЭТОГО VIP-НИКА";
+            loginBtn.disabled = false;
+        }
     } else {
-        authErrorMsg.textContent = "ОШИБКА СЕТИ, ПОВТОРИТЕ ПОПЫТКУ";
-        loginBtn.disabled = false;
+        // Если ник свободен — регистрируем в мировом облаке
+        user = { name: name, password: password, balance: 1000 };
+        allPlayers[name] = user;
+        await saveToCloud(allPlayers);
+        enterCasino();
     }
 });
 
@@ -151,8 +167,11 @@ function enterCasino() {
 
 async function saveSession() {
     localStorage.setItem(`gv_user_${user.name}`, JSON.stringify(user));
-    // Отправляем обновленный баланс прямо в строки Google Таблицы
-    await requestGoogleSheets({ action: "save", name: user.name, password: user.password, balance: user.balance });
+    const allPlayers = await fetchAllPlayers();
+    if (allPlayers) {
+        allPlayers[user.name] = user;
+        await saveToCloud(allPlayers);
+    }
 }
 
 function updateInterface() {
@@ -202,21 +221,21 @@ clearBtn.addEventListener('click', () => {
 globalLeaderboardBtn.addEventListener('click', async () => {
     AudioEngine.init();
     leaderboardModal.classList.add('active');
-    leaderboardRows.innerHTML = `<tr><td colspan="3" style="text-align:center; opacity:0.5;">ЗАГРУЗКА МИРОВОЙ БАЗЫ GOOGLE...</td></tr>`;
+    leaderboardRows.innerHTML = `<tr><td colspan="3" style="text-align:center; opacity:0.5;">СКАЧИВАНИЕ МИРОВОГО ТОПА...</td></tr>`;
     await renderLeaderboard();
 });
 
 closeLeaderboardBtn.addEventListener('click', () => { leaderboardModal.classList.remove('active'); });
 
 async function renderLeaderboard() {
-    const res = await requestGoogleSheets({ action: "leaderboard" });
+    const cloudData = await fetchAllPlayers();
 
-    if (!res || !res.players || res.players.length === 0) {
+    if (!cloudData || Object.keys(cloudData).length === 0) {
         leaderboardRows.innerHTML = `<tr><td colspan="3" style="text-align:center; opacity:0.5;">VIP-список пуст</td></tr>`;
         return;
     }
 
-    let players = res.players;
+    let players = Object.values(cloudData);
     players.sort((a, b) => b.balance - a.balance);
     leaderboardRows.innerHTML = "";
 
@@ -242,16 +261,18 @@ cheatConsoleBtn.addEventListener('click', async () => {
         const target = inputCode.substring(13).trim().toUpperCase();
         if (!target) return;
 
-        const res = await requestGoogleSheets({ action: "delete", name: target });
-        if (res && res.status === "success") {
+        const allPlayers = await fetchAllPlayers();
+        if (allPlayers && allPlayers[target]) {
+            delete allPlayers[target];
+            await saveToCloud(allPlayers);
             localStorage.removeItem(`gv_user_${target}`);
-            alert(`Игрок ${target} успешно удален из таблиц Google.`);
+            alert(`Игрок ${target} успешно удален.`);
             if (target === user.name) location.reload();
-        } else { alert("Ошибка удаления или игрок не найден."); }
+        } else { alert("Игрок не найден."); }
     } else { alert("Неверный VIP-код!"); }
 });
 
-// --- ИДЕАЛЬНОЕ ЭКСПОНЕНЦИАЛЬНОЕ ЗАТУХАНИЕ ШАРИКА БЕЗ СКАЧКОВ СКОРОСТИ ---
+// --- СИНХРОННОЕ КИНЕМАТИЧЕСКОЕ ЗАТУХАНИЕ ШАРИКА С ПОСАДКОЙ В ЦЕНТР ---
 let wheelRotation = 0;
 
 spinBtn.addEventListener('click', () => {
@@ -270,7 +291,7 @@ spinBtn.addEventListener('click', () => {
     const startTime = performance.now();
 
     const wheelTargetAngle = winningIndex * sectorDegrees;
-    const wheelSpins = 2160; // 6 полных кругов рулетки
+    const wheelSpins = 2160;
 
     const startWheelAngle = wheelRotation;
     const endWheelAngle = wheelRotation + wheelSpins + (360 - wheelTargetAngle);
@@ -285,30 +306,41 @@ spinBtn.addEventListener('click', () => {
         const elapsed = now - startTime;
         const progress = Math.min(elapsed / duration, 1);
 
-        // Математическое гашение скорости 5-й степени (Инерция колеса)
+        // Математическое гашение скорости 5-й степени
         const easeOutQuint = 1 - Math.pow(1 - progress, 5);
         const currentWheelPos = startWheelAngle + (endWheelAngle - startWheelAngle) * easeOutQuint;
 
-        // Физически выверенное относительное положение шарика.
-        // Шарик вращается вместе с колесом, но имеет свою добавочную плавную инерцию,
-        // которая тает на нет. Никаких рывков или ускорений в конце быть не может физически.
-        const ballExtraOrbits = 1440; // 4 дополнительных круга шарика поверх скорости колеса
-        const ballProgressAngle = ballExtraOrbits * (1 - Math.pow(1 - progress, 3.5));
+        let currentBallPos = 0;
+        let currentRadius = 96;
 
-        // Шарик стремится сесть строго в центр ячейки (угол колеса + угол сектора + 180 верхняя точка)
-        const currentBallPos = ((currentWheelPos % 360) + wheelTargetAngle + 180) - (ballExtraOrbits - ballProgressAngle);
+        // Фаза 1: Шарик катится по внешнему кольцу (до 82% времени крутки)
+        if (progress < 0.82) {
+            const totalBallOrbits = 2520;
+            currentBallPos = -(totalBallOrbits * easeOutQuint) + (wheelTargetAngle * progress);
+            currentRadius = 96 - (24 * easeOutQuint);
 
-        // Плавное сужение радиуса качения шарика к центру ячейки
-        const currentRadius = 96 - (31 * easeOutQuint);
+            const absoluteRelativeAngle = Math.abs(currentBallPos - currentWheelPos);
+            if (Math.abs(absoluteRelativeAngle - lastTickAngle) >= sectorDegrees) {
+                AudioEngine.playBallTick();
+                lastTickAngle = absoluteRelativeAngle;
+            }
+        }
+        // Фаза 2: Мягкое опускание без изменения скорости вращения колеса рулетки
+        else {
+            const phase2Progress = (progress - 0.82) / 0.18;
+            const easePhase2 = 1 - Math.pow(1 - phase2Progress, 3);
+
+            const exactCenterAngle = (currentWheelPos % 360) + wheelTargetAngle + 180;
+            const totalBallOrbits = 2520;
+            const finalBallAngleAt82 = -(totalBallOrbits * (1 - Math.pow(1 - 0.82, 5))) + (wheelTargetAngle * 0.82);
+
+            currentBallPos = finalBallAngleAt82 + (exactCenterAngle - finalBallAngleAt82) * easePhase2;
+
+            const radiusAt82 = 96 - (24 * (1 - Math.pow(1 - 0.82, 5)));
+            currentRadius = radiusAt82 - ((radiusAt82 - 65) * easePhase2);
+        }
 
         ball.style.transform = `translate(-50%, -50%) rotate(${currentBallPos}deg) translate(${currentRadius}px) rotate(${-currentBallPos}deg)`;
-
-        // Звуковой треск замедляется синхронно с движением шарика
-        const absoluteRelativeAngle = Math.abs(currentBallPos - currentWheelPos);
-        if (Math.abs(absoluteRelativeAngle - lastTickAngle) >= sectorDegrees) {
-            if (progress < 0.83) AudioEngine.playBallTick();
-            lastTickAngle = absoluteRelativeAngle;
-        }
 
         if (progress < 1) {
             requestAnimationFrame(animateSimulation);
@@ -325,7 +357,6 @@ async function finishRound(resultSector) {
     if (resultSector.c === 'zero' && bets.zero > 0) winSum += bets.zero * 36;
 
     user.balance += winSum;
-    // Мгновенно синхронизируем баланс с Google Таблицей по сети
     await saveSession();
 
     if (winSum > 0) AudioEngine.playWinSound();
