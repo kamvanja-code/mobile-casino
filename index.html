@@ -47,18 +47,16 @@
             </div>
         </header>
 
-        <!-- Новая двухблочная сцена -->
+        <!-- Двухблочная адаптивная сцена -->
         <main class="table-scene">
 
-            <!-- ЛЕВАЯ СЕКЦИЯ: КОЛЕСО И ТАБЛО -->
+            <!-- ЛЕВАЯ ЧАСТЬ: РУЛЕТКА И ТАБЛО -->
             <div class="left-wing">
                 <div class="roulette-section">
                     <div class="roulette-wheel-container">
                         <div class="wheel-pointer"></div>
                         <div class="wheel-outer-rim">
-                            <div id="wheel" class="wheel-spindle">
-                                <!-- Сюда JS вставит SVG с цифрами секторов -->
-                            </div>
+                            <div id="wheel" class="wheel-spindle"></div>
                         </div>
                         <div id="roulette-ball" class="roulette-ball hidden"></div>
                     </div>
@@ -68,9 +66,9 @@
                 </div>
             </div>
 
-            <!-- ПРАВАЯ СЕКЦИЯ: СУКНО И КНОПКИ УПРАВЛЕНИЯ -->
+            <!-- ПРАВАЯ ЧАСТЬ: КЛАССИЧЕСКИЙ СТОЛ СТАВОК -->
             <div class="right-wing">
-                <div class="betting-felt">
+                <div class="felt-container">
                     <div class="zero-box">
                         <div class="bet-spot spot-zero num-0" data-target="num_0">
                             <span class="spot-title">0</span>
@@ -78,12 +76,15 @@
                         </div>
                     </div>
                     <div id="numbers-grid" class="numbers-grid"></div>
-                    <div class="color-spots-row">
-                        <div class="bet-spot spot-red" data-target="red"><span class="spot-title">RED</span><div id="chip-space-red" class="chip-holder hidden"></div></div>
-                        <div class="bet-spot spot-black" data-target="black"><span class="spot-title">BLACK</span><div id="chip-space-black" class="chip-holder hidden"></div></div>
-                    </div>
                 </div>
 
+                <!-- Строка ставок на цвета под сеткой чисел -->
+                <div class="color-spots-row">
+                    <div class="bet-spot spot-red" data-target="red"><span class="spot-title">RED</span><div id="chip-space-red" class="chip-holder hidden"></div></div>
+                    <div class="bet-spot spot-black" data-target="black"><span class="spot-title">BLACK</span><div id="chip-space-black" class="chip-holder hidden"></div></div>
+                </div>
+
+                <!-- Нижний пульт управления дилера -->
                 <div class="dealer-panel">
                     <div class="chips-tray">
                         <div class="casino-chip chip-cyan active" data-value="10">10</div>

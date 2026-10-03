@@ -73,7 +73,6 @@ const leaderboardModal = document.getElementById('leaderboard-modal');
 const closeLeaderboardBtn = document.getElementById('close-leaderboard-btn');
 const leaderboardRows = document.getElementById('leaderboard-rows');
 
-// Отрисовка цифр на секторах рулетки
 function drawWheelSectorsSVG() {
     let gradientParts = [];
     let svgContent = `<svg width="100%" height="100%" viewBox="0 0 200 200" style="position:absolute; top:0; left:0; z-index:2;">`;
@@ -84,13 +83,13 @@ function drawWheelSectorsSVG() {
         let color = sector.c === 'zero' ? '#116936' : (sector.c === 'red' ? '#bd1c1c' : '#1a1a1a');
         gradientParts.push(`${color} ${startDeg}deg ${endDeg}deg`);
 
-        // Считаем угол для текста в центре каждого кармана
+        // Увеличили радиус tx/ty до 80, чтобы цифры стояли ровно по центру цветных ячеек
         let textAngle = startDeg + (sectorDegrees / 2);
         let rad = (textAngle - 90) * Math.PI / 180;
-        let tx = 100 + 78 * Math.cos(rad);
-        let ty = 100 + 78 * Math.sin(rad);
+        let tx = 100 + 80 * Math.cos(rad);
+        let ty = 100 + 80 * Math.sin(rad);
 
-        svgContent += `<text x="${tx}" y="${ty}" fill="#ffd700" font-size="7.5" font-weight="800" text-anchor="middle" dominant-baseline="central" transform="rotate(${textAngle}, ${tx}, ${ty})">${sector.n}</text>`;
+        svgContent += `<text x="${tx}" y="${ty}" fill="#ffffff" font-size="10" font-weight="800" text-anchor="middle" dominant-baseline="central" transform="rotate(${textAngle}, ${tx}, ${ty})">${sector.n}</text>`;
     });
 
     svgContent += `</svg><div class="wheel-hub"></div>`;
@@ -98,19 +97,33 @@ function drawWheelSectorsSVG() {
     wheel.style.background = `conic-gradient(${gradientParts.join(', ')})`;
 }
 
+// Пересборка логики заполнения стола по классической математике рулетки
 function generateFeltGrid() {
     const grid = document.getElementById('numbers-grid');
     if (!grid) return;
     grid.innerHTML = "";
-    for (let i = 1; i <= 36; i++) {
-        const sec = rouletteNumbers.find(box => box.n === i);
-        const colClass = sec.c === 'red' ? 'bg-red' : 'bg-black';
-        const spot = document.createElement('div');
-        spot.className = `bet-spot spot-number ${colClass} num-${i}`;
-        spot.setAttribute('data-target', `num_${i}`);
-        spot.innerHTML = `<span class="spot-title">${i}</span><div id="chip-space-num_${i}" class="chip-holder hidden"></div>`;
-        grid.appendChild(spot);
-    }
+
+    // В казино числа идут колонками по три штуки: (1,2,3), (4,5,6)...
+    // На ПК-столе они выстраиваются в 3 горизонтальных ряда.
+    // 1-й ряд: 3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36
+    // 2-й ряд: 2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35
+    // 3-й ряд: 1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34
+    const rowsLayout = [,
+ ,
+        [1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34]
+    ];
+
+    rowsLayout.forEach(row => {
+        row.forEach(num => {
+            const sec = rouletteNumbers.find(box => box.n === num);
+            const colClass = sec.c === 'red' ? 'bg-red' : 'bg-black';
+            const spot = document.createElement('div');
+            spot.className = `bet-spot spot-number ${colClass} num-${num}`;
+            spot.setAttribute('data-target', `num_${num}`);
+            spot.innerHTML = `<span class="spot-title">${num}</span><div id="chip-space-num_${num}" class="chip-holder hidden"></div>`;
+            grid.appendChild(spot);
+        });
+    });
 }
 
 drawWheelSectorsSVG();
@@ -212,12 +225,12 @@ spinBtn.addEventListener('click', () => {
 
     const winningIndex = Math.floor(Math.random() * 37); const resultSector = rouletteNumbers[winningIndex]; const duration = 6500; const startTime = performance.now();
     const wheelTargetAngle = winningIndex * sectorDegrees; const wheelSpins = 2160; const startWheelAngle = wheelRotation; const endWheelAngle = wheelRotation + wheelSpins + (360 - wheelTargetAngle); wheelRotation = endWheelAngle;
-    wheel.style.transform = 'rotate(' + wheelRotation + 'deg)'; ball.classList.remove('hidden'); let lastTickAngle = 0;
+    wheel.style.transform = `rotate(${wheelRotation}deg)`; ball.classList.remove('hidden'); let lastTickAngle = 0;
 
     function animateSimulation(now) {
         const elapsed = now - startTime; const progress = Math.min(elapsed / duration, 1); const easeOutQuint = 1 - Math.pow(1 - progress, 5); const currentWheelPos = startWheelAngle + (endWheelAngle - startWheelAngle) * easeOutQuint;
         const ballExtraOrbits = 1080; const currentBallExtra = ballExtraOrbits * Math.pow(1 - progress, 2.5); const currentBallPos = ((currentWheelPos % 360) + wheelTargetAngle + 180) - currentBallExtra; const currentRadius = 96 - (31 * easeOutQuint);
-        ball.style.transform = 'translate(-50%, -50%) rotate(' + currentBallPos + 'deg) translate(' + currentRadius + 'px) rotate(' + (-currentBallPos) + 'deg)';
+        ball.style.transform = `translate(-50%, -50%) rotate(${currentBallPos}deg) translate(${currentRadius}px) rotate(${ -currentBallPos}deg)`;
         const absoluteRelativeAngle = Math.abs(currentBallPos - currentWheelPos);
         if (absoluteRelativeAngle - lastTickAngle >= sectorDegrees) { if (progress < 0.85) AudioEngine.playBallTick(); lastTickAngle = absoluteRelativeAngle; }
         if (progress < 1) { requestAnimationFrame(animateSimulation); } else { finishRound(resultSector); }

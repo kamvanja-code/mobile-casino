@@ -36,67 +36,77 @@ body, html { width: 100%; height: 100%; background-color: var(--dark-bg); color:
 .wallet-amount { font-size: 18px; font-weight: 800; display: flex; align-items: center; gap: 2px; }
 .currency-sign { color: #f5af19; }
 
-/* АДАПТИВНАЯ СЦЕНА КАЗИНО: РАЗВОРАЧИВАЕТСЯ СБОКУ НА ШИРОКИХ ЭКРАНАХ */
+/* УМНАЯ ВЕРСТКА ДЛЯ ЛЮБЫХ МОНИТОРОВ */
 .table-scene {
     flex: 1; display: flex; flex-direction: column; align-items: center;
     justify-content: flex-start; padding: 10px; gap: 15px; overflow-y: auto;
 }
-@media (min-width: 768px) {
-    .table-scene { flex-direction: row; justify-content: center; align-items: center; gap: 40px; overflow: hidden; padding: 20px; }
+@media (min-width: 992px) {
+    .table-scene { flex-direction: row; justify-content: center; align-items: center; gap: 30px; overflow: hidden; padding: 20px; }
 }
 
-.left-wing { display: flex; flex-direction: column; align-items: center; gap: 10px; }
-.right-wing { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; max-width: 420px; }
+.left-wing { display: flex; flex-direction: column; align-items: center; gap: 15px; }
+.right-wing { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; max-width: 720px; }
 
 .roulette-section { position: relative; }
-.roulette-wheel-container { position: relative; width: 260px; height: 220px; border-radius: 50%; background: #120e0a; box-shadow: 0 12px 30px rgba(0,0,0,0.8); padding: 8px; width: 220px; }
-.wheel-pointer { position: absolute; top: -4px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 9px solid transparent; border-right: 9px solid transparent; border-top: 17px solid #ffd700; z-index: 12; }
+.roulette-wheel-container { position: relative; width: 280px; height: 280px; border-radius: 50%; background: #120e0a; box-shadow: 0 15px 35px rgba(0,0,0,0.8); padding: 8px; }
+.wheel-pointer { position: absolute; top: -5px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 11px solid transparent; border-right: 11px solid transparent; border-top: 20px solid #ffd700; z-index: 12; }
 .wheel-outer-rim { width: 100%; height: 100%; border-radius: 50%; background: linear-gradient(135deg, #4a3728 0%, #1f140e 100%); border: 3px solid #ffd700; padding: 2px; }
 .wheel-spindle { width: 100%; height: 100%; border-radius: 50%; position: relative; overflow: hidden; }
-.wheel-hub { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 40px; height: 40px; border-radius: 50%; background: radial-gradient(circle, #f5af19 0%, #2b1a01 100%); border: 2px solid #ffd700; z-index: 4; }
-.roulette-ball { position: absolute; width: 10px; height: 10px; background: radial-gradient(circle at 3px 3px, #ffffff 0%, #999999 100%); border-radius: 50%; top: 50%; left: 50%; z-index: 15; box-shadow: 0 3px 6px rgba(0,0,0,0.6); transform-origin: 50% 50%; }
-.display-board { width: 220px; background: rgba(0, 0, 0, 0.8); border: 1px solid rgba(255, 215, 0, 0.2); border-radius: 30px; padding: 6px 10px; text-align: center; }
-.ticker-message { font-size: 10px; font-weight: 800; letter-spacing: 0.5px; color: #ffd700; text-transform: uppercase; }
+.wheel-hub { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 46px; height: 46px; border-radius: 50%; background: radial-gradient(circle, #f5af19 0%, #2b1a01 100%); border: 2px solid #ffd700; z-index: 4; }
+.roulette-ball { position: absolute; width: 12px; height: 12px; background: radial-gradient(circle at 3px 3px, #ffffff 0%, #999999 100%); border-radius: 50%; top: 50%; left: 50%; z-index: 15; box-shadow: 0 3px 6px rgba(0,0,0,0.6); transform-origin: 50% 50%; }
+.display-board { width: 280px; background: rgba(0, 0, 0, 0.9); border: 1px solid rgba(255, 215, 0, 0.2); border-radius: 30px; padding: 8px 15px; text-align: center; }
+.ticker-message { font-size: 11px; font-weight: 800; letter-spacing: 1px; color: #ffd700; text-transform: uppercase; }
 
-.betting-felt { width: 100%; display: flex; flex-direction: column; gap: 4px; perspective: 600px; }
-.zero-box { width: 100%; }
-.zero-box .bet-spot { height: 32px; border-radius: 6px; }
+/* КЛАССИЧЕСКИЙ ГОРИЗОНТАЛЬНЫЙ СТОЛ СУКНА НА ПК */
+.felt-container { display: flex; width: 100%; background: #062416; padding: 8px; border-radius: 10px; border: 2px solid #116936; box-shadow: inset 0 0 20px rgba(0,0,0,0.6); }
 
-.numbers-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 3px; width: 100%; }
-.bet-spot {
-    height: 34px; position: relative; cursor: pointer;
-    display: flex; flex-direction: column; justify-content: center; align-items: center;
-    border-radius: 6px; box-shadow: 0 4px 8px rgba(0,0,0,0.4); transition: all 0.2s;
+.zero-box { width: 50px; display: flex; }
+.zero-box .bet-spot { width: 100%; height: 100%; min-height: 120px; }
+
+.numbers-grid { flex: 1; display: grid; grid-template-columns: repeat(12, 1fr); grid-template-rows: repeat(3, 1fr); gap: 4px; padding-left: 4px; }
+
+/* Адаптивность для мобильных телефонов (если откроете с мобильного — стол развернется вертикально) */
+@media (max-width: 991px) {
+    .felt-container { flex-direction: column; }
+    .zero-box { width: 100%; margin-bottom: 4px; }
+    .zero-box .bet-spot { min-height: 36px; }
+    .numbers-grid { grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(12, 1fr); }
 }
-.spot-number.bg-red { background: linear-gradient(to bottom, #bd1c1c, #6b0707); border: 1px solid #ff4d4d; }
-.spot-number.bg-black { background: linear-gradient(to bottom, #292929, #121212); border: 1px solid #444; }
+
+.bet-spot {
+    position: relative; cursor: pointer; display: flex; justify-content: center; align-items: center;
+    border-radius: 50%; box-shadow: 0 3px 6px rgba(0,0,0,0.4); transition: all 0.15s ease; border-radius: 6px;
+}
+.spot-number.bg-red { background: linear-gradient(135deg, #bd1c1c, #6b0707); border: 1px solid #ff4d4d; }
+.spot-number.bg-black { background: linear-gradient(135deg, #292929, #121212); border: 1px solid #444; }
 .spot-zero { background: linear-gradient(to bottom, #116936, #073a1d); border: 1px solid #22c55e; }
 .spot-red { background: linear-gradient(to right, #bd1c1c, #6b0707); border: 1px solid #ff4d4d; }
 .spot-black { background: linear-gradient(to right, #292929, #121212); border: 1px solid #444; }
 
-.color-spots-row { display: flex; gap: 4px; width: 100%; }
-.color-spots-row .bet-spot { flex: 1; height: 38px; }
-.spot-title { font-size: 12px; font-weight: 800; text-shadow: 0 2px 4px rgba(0,0,0,0.8); }
+.color-spots-row { display: flex; gap: 4px; width: 100%; margin-top: 4px; }
+.color-spots-row .bet-spot { flex: 1; height: 40px; }
+.spot-title { font-size: 12px; font-weight: 800; text-shadow: 0 1px 3px rgba(0,0,0,0.8); pointer-events: none; }
 
 .bet-spot.winning-highlight {
     border-color: #ffd700 !important;
-    box-shadow: 0 0 20px #ffd700, inset 0 0 12px rgba(255, 215, 0, 0.7) !important;
-    transform: scale(1.04); z-index: 10;
+    box-shadow: 0 0 22px #ffd700, inset 0 0 12px rgba(255, 215, 0, 0.7) !important;
+    transform: scale(1.05); z-index: 5;
 }
 
-.chip-holder { position: absolute; width: 22px; height: 22px; border-radius: 50%; background: #ffffff; color: #000; font-weight: 800; font-size: 9px; display: flex; align-items: center; justify-content: center; border: 2px dashed #000; top: 50%; left: 50%; transform: translate(-50%, -50%); box-shadow: 0 2px 5px #000; }
+.chip-holder { position: absolute; width: 22px; height: 22px; border-radius: 50%; background: #ffffff; color: #000; font-weight: 800; font-size: 9px; display: flex; align-items: center; justify-content: center; border: 2px dashed #000; top: 50%; left: 50%; transform: translate(-50%, -50%); box-shadow: 0 2px 4px #000; z-index: 2; }
 
-.dealer-panel { width: 100%; background: linear-gradient(to top, #000000 0%, rgba(0,0,0,0.85) 100%); padding: 10px; border-radius: 12px; border: 1px solid rgba(255,215,0,0.15); }
-.chips-tray { display: flex; justify-content: center; gap: 12px; margin-bottom: 10px; }
-.casino-chip { width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 10px; font-weight: 800; color: #fff; cursor: pointer; border: 3px dashed rgba(255,255,255,0.6); transition: transform 0.2s; }
+.dealer-panel { width: 100%; background: linear-gradient(to top, #000000 0%, rgba(0,0,0,0.85) 100%); padding: 12px; border-radius: 12px; border: 1px solid rgba(255,215,0,0.15); margin-top: 10px; }
+.chips-tray { display: flex; justify-content: center; gap: 14px; margin-bottom: 10px; }
+.casino-chip { width: 42px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: #fff; cursor: pointer; border: 3px dashed rgba(255,255,255,0.6); transition: transform 0.2s; height: 42px; }
 .chip-cyan { background: radial-gradient(circle, #00b4db, #0083b0); }
 .chip-magenta { background: radial-gradient(circle, #f857a6, #ff5858); }
 .chip-gold { background: radial-gradient(circle, #f5af19, #e65c00); }
 .chip-purple { background: radial-gradient(circle, #b06ab3, #4568dc); }
-.casino-chip.active { transform: translateY(-5px) scale(1.1); border: 2px solid #ffffff; }
+.casino-chip.active { transform: translateY(-6px) scale(1.1); border: 2px solid #ffffff; }
 
-.action-grid { display: flex; gap: 6px; }
-.action-btn { padding: 12px; border: none; border-radius: 8px; font-size: 11px; font-weight: 700; text-transform: uppercase; cursor: pointer; }
+.action-grid { display: flex; gap: 8px; }
+.action-btn { padding: 14px; border: none; border-radius: 8px; font-size: 11px; font-weight: 700; text-transform: uppercase; cursor: pointer; }
 .btn-secondary { background: rgba(255, 255, 255, 0.06); color: #a0aab2; border: 1px solid rgba(255,255,255,0.1); }
 .btn-action-spin { flex: 2; background: var(--gold-gradient); color: #000; font-weight: 800; box-shadow: var(--gold-glow); }
 .action-btn:disabled { opacity: 0.15 !important; cursor: not-allowed; }
