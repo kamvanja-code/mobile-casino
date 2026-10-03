@@ -4,10 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Grand Velvet Casino</title>
-   <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="style.css">
     <link href="https://googleapis.com" rel="stylesheet">
 </head>
 <body>
+
+    <!-- КНОПКА ТАБЛИЦЫ ЛИДЕРОВ (ДОСТУПНА ВСЕГДА) -->
+    <button id="global-leaderboard-btn" class="leaderboard-trigger-btn">🏆 ТОП ИГРОКОВ</button>
 
     <!-- ЭКРАН РЕГИСТРАЦИИ / ВХОДА -->
     <div id="auth-screen" class="screen active">
@@ -19,15 +22,21 @@
             </div>
 
             <div class="auth-box">
-                <h2>Регистрация члена клуба</h2>
-                <p class="auth-notice">Введите уникальный никнейм. Прогресс и баланс автоматически привяжутся к вашему устройству.</p>
+                <h2 id="auth-title">Вход / Регистрация</h2>
+                <p class="auth-notice">Если вы заходите впервые, для вашего никнейма создастся новый аккаунт с указанным паролем.</p>
 
                 <div class="input-field">
-                    <input type="text" id="username-input" placeholder="Ваш никнейм..." maxlength="14" autocomplete="off">
+                    <input type="text" id="username-input" placeholder="Никнейм..." maxlength="14" autocomplete="off">
                     <span class="glow-line"></span>
                 </div>
 
-                <button id="login-btn" class="btn-premium">Получить фишки</button>
+                <div class="input-field">
+                    <input type="password" id="password-input" placeholder="Пароль..." autocomplete="off">
+                    <span class="glow-line"></span>
+                </div>
+
+                <button id="login-btn" class="btn-premium">Войти в клуб</button>
+                <div id="auth-error-msg" class="auth-error"></div>
             </div>
         </div>
     </div>
@@ -58,11 +67,10 @@
                     <div class="wheel-pointer"></div>
                     <div class="wheel-outer-rim">
                         <div id="wheel" class="wheel-spindle">
-                            <!-- Центр колеса -->
                             <div class="wheel-hub"></div>
                         </div>
                     </div>
-                    <!-- Анимированный шарик, который будет летать снаружи -->
+                    <!-- Анимированный шарик -->
                     <div id="roulette-ball" class="roulette-ball hidden"></div>
                 </div>
             </div>
@@ -105,13 +113,37 @@
                 <div class="action-grid">
                     <button id="clear-btn" class="action-btn btn-secondary">Сбросить</button>
                     <button id="spin-btn" class="action-btn btn-action-spin">ЗАПУСК</button>
-                    <button id="refill-btn" class="action-btn btn-gold-refill">+500 $</button>
+                    <button id="cheat-console-btn" class="action-btn btn-secondary">📜 КОДЫ</button>
                 </div>
             </div>
 
         </main>
     </div>
 
-<script src="app.js"></script>
+    <!-- МОДАЛЬНОЕ ОКНО: ТАБЛИЦА ЛИДЕРОВ -->
+    <div id="leaderboard-modal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-header">
+                <h3>🏆 VIP ТАБЛИЦА ЛИДЕРОВ</h3>
+                <button id="close-leaderboard-btn" class="close-modal-btn">&times;</button>
+            </div>
+            <div class="modal-body">
+                <table class="leaderboard-table">
+                    <thead>
+                        <tr>
+                            <th>Ранг</th>
+                            <th>Игрок</th>
+                            <th>Баланс</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboard-rows">
+                        <!-- Сюда JS вставит строки игроков -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
 </body>
 </html>

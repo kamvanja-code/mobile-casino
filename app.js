@@ -24,7 +24,9 @@ const sectorDegrees = 360 / 37;
 const authScreen = document.getElementById('auth-screen');
 const gameScreen = document.getElementById('game-screen');
 const usernameInput = document.getElementById('username-input');
+const passwordInput = document.getElementById('password-input');
 const loginBtn = document.getElementById('login-btn');
+const authErrorMsg = document.getElementById('auth-error-msg');
 const userNameDisplay = document.getElementById('user-name');
 const userBalanceDisplay = document.getElementById('user-balance');
 const wheel = document.getElementById('wheel');
@@ -32,9 +34,13 @@ const ball = document.getElementById('roulette-ball');
 const statusMessage = document.getElementById('status-message');
 const spinBtn = document.getElementById('spin-btn');
 const clearBtn = document.getElementById('clear-btn');
-const refillBtn = document.getElementById('refill-btn');
+const cheatConsoleBtn = document.getElementById('cheat-console-btn');
 
-// Генерация текстуры секторов колеса рулетки
+const globalLeaderboardBtn = document.getElementById('global-leaderboard-btn');
+const leaderboardModal = document.getElementById('leaderboard-modal');
+const closeLeaderboardBtn = document.getElementById('close-leaderboard-btn');
+const leaderboardRows = document.getElementById('leaderboard-rows');
+
 function renderWheelSectors() {
     let gradientParts = [];
     rouletteNumbers.forEach((sector, index) => {
@@ -47,38 +53,48 @@ function renderWheelSectors() {
 }
 renderWheelSectors();
 
-// --- СИСТЕМА РЕГИСТРАЦИИ (LOCALSTORAGE) ---
+// --- СИСТЕМА ЗАЩИТЫ ПАРОЛЕМ ---
 loginBtn.addEventListener('click', () => {
     const name = usernameInput.value.trim().toUpperCase();
-    if (!name) {
-        statusMessage.textContent = "ВВЕДИТЕ ИМЯ ДЛЯ ВХОДА";
+    const password = passwordInput.value.trim();
+
+    if (!name || !password) {
+        authErrorMsg.textContent = "ЗАПОЛНИТЕ ВСЕ ПОЛЯ";
         return;
     }
 
-    user.name = name;
-    const cloudSave = localStorage.getItem(`grand_velvet_user_${name}`);
+    const cloudSave = localStorage.getItem(`gv_user_${name}`);
 
     if (cloudSave) {
-        user = JSON.parse(cloudSave);
+        const existingUser = JSON.parse(cloudSave);
+        if (existingUser.password === password) {
+            user = existingUser;
+            authErrorMsg.textContent = "";
+            enterCasino();
+        } else {
+            authErrorMsg.textContent = "НЕВЕРНЫЙ ПАРОЛЬ ДЛЯ ДАННОГО НИКНЕЙМА";
+        }
     } else {
-        user.balance = 1000;
+        user = { name: name, password: password, balance: 1000 };
         saveSession();
+        authErrorMsg.textContent = "";
+        enterCasino();
     }
+});
 
+function enterCasino() {
     updateInterface();
     authScreen.classList.remove('active');
     setTimeout(() => gameScreen.classList.add('active'), 400);
-});
-
-function saveSession() {
-    localStorage.setItem(`grand_velvet_user_${user.name}`, JSON.stringify(user));
 }
 
+function saveSession() {
+    localStorage.setItem(`gv_user_${user.name}`, JSON.stringify(user));
+}
 function updateInterface() {
     userNameDisplay.textContent = user.name;
     userBalanceDisplay.textContent = user.balance.toLocaleString();
 
-    // Обновление фишек на столе
     ['red', 'black', 'zero'].forEach(type => {
         const holder = document.getElementById(`chip-space-${type}`);
         if (bets[type] > 0) {
@@ -90,7 +106,7 @@ function updateInterface() {
     });
 }
 
-// --- СТАВКИ И ФИШКИ ---
+// --- УПРАВЛЕНИЕ СТАВКАМИ ---
 document.querySelectorAll('.casino-chip').forEach(chip => {
     chip.addEventListener('click', (e) => {
         if (isSpinning) return;
@@ -124,15 +140,85 @@ clearBtn.addEventListener('click', () => {
     statusMessage.textContent = "СТАВКИ СБРОШЕНЫ";
 });
 
-refillBtn.addEventListener('click', () => {
-    if (isSpinning) return;
-    user.balance += 500;
-    saveSession();
-    updateInterface();
-    statusMessage.textContent = "ДЕПОЗИТ ПОПОЛНЕН: +500\$";
+// --- ЛИДЕРБОРД И БАЗА ДАННЫХ ---
+globalLeaderboardBtn.addEventListener('click', () => {
+    renderLeaderboard();
+    leaderboardModal.classList.add('active');
 });
 
-// --- СИНХРОННАЯ КИНЕМАТИКА РУЛЕТКИ И ШАРИКА ---
+closeLeaderboardBtn.addEventListener('click', () => {
+    leaderboardModal.classList.remove('active');
+});
+
+function renderLeaderboard() {
+    leaderboardRows.innerHTML = "";
+    let players = [];
+
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key.startsWith("gv_user_")) {
+            try {
+                players.push(JSON.parse(localStorage.getItem(key)));
+            } catch(e) {}
+        }
+    }
+
+    players.sort((a, b) => b.balance - a.balance);
+
+    if (players.length === 0) {
+        leaderboardRows.innerHTML = `<tr><td colspan="3" style="text-align:center; opacity:0.5;">Нет зарегистрированных VIP-гостей</td></tr>`;
+        return;
+    }
+
+    players.forEach((p, idx) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>#${idx + 1}</td>
+            <td>${p.name} ${p.name === user.name ? '<span style="color:#22c55e">(Вы)</span>' : ''}</td>
+            <td>${p.balance.toLocaleString()} $</td>
+        `;
+        leaderboardRows.appendChild(row);
+    });
+}
+// --- ЧИТ-КОДЫ И АДМИН-КОНСОЛЬ ---
+cheatConsoleBtn.addEventListener('click', () => {
+    if (isSpinning) return;
+
+    const inputCode = prompt("ВВЕДИТЕ СЕКРЕТНЫЙ VIP-КОД ИЛИ АДМИН-КОМАНДУ:");
+    if (!inputCode) return;
+
+    const cleanCode = inputCode.trim().toLowerCase();
+
+    if (cleanCode === "cashin") {
+        user.balance += 5000;
+        saveSession();
+        updateInterface();
+        alert("Код активирован! Зачислено +5,000 \$");
+    }
+    else if (cleanCode === "cashout") {
+        user.balance = Math.max(0, user.balance - 500);
+        saveSession();
+        updateInterface();
+        alert("Код активирован! Списано -500 \$");
+    }
+    else if (cleanCode.startsWith("deleteplayer ")) {
+        const targetPlayerName = inputCode.substring(13).trim().toUpperCase();
+        if (!targetPlayerName) return;
+
+        const storageKey = `gv_user_${targetPlayerName}`;
+        if (localStorage.getItem(storageKey)) {
+            localStorage.removeItem(storageKey);
+            alert(`Удален аккаунт игрока: ${targetPlayerName}`);
+            if (targetPlayerName === user.name) location.reload();
+        } else {
+            alert("Игрок не найден.");
+        }
+    } else {
+        alert("Неверный VIP-код!");
+    }
+});
+
+// --- КИНЕМАТИКА РУЛЕТКИ (5.5 СЕК + 2.5 СЕК ОЖИДАНИЯ) ---
 let wheelRotation = 0;
 
 spinBtn.addEventListener('click', () => {
@@ -148,43 +234,32 @@ spinBtn.addEventListener('click', () => {
     toggleControls(true);
     statusMessage.textContent = "СТАВКИ СДЕЛАНЫ. КОЛЕСО ЗАПУЩЕНО";
 
-    // 1. Выбираем случайное число
     const winningIndex = Math.floor(Math.random() * 37);
     const resultSector = rouletteNumbers[winningIndex];
 
-    // 2. Рассчитываем вращение самого колеса (по часовой стрелке)
     const wheelTargetAngle = winningIndex * sectorDegrees;
-    const wheelSpins = 1440; // 4 полных оборота колеса
+    const wheelSpins = 2160;
     wheelRotation += wheelSpins + (360 - wheelTargetAngle);
+
     wheel.style.transform = `rotate(${wheelRotation}deg)`;
 
-    // 3. Запуск шарика (против часовой стрелки на внешней орбите)
     ball.classList.remove('hidden');
+    const ballFinalAngle = -1800 - wheelTargetAngle;
 
-    // Создаем кастомный путь анимации для шарика через CSS переменные
-    // Шарик должен сделать несколько кругов на радиусе 95px, а в конце упасть на радиус 65px в нужный сектор колеса.
-    const ballFinalAngle = -1440 - wheelTargetAngle;
-
-    // Динамически инжектим ключевые кадры для падения шарика
     const styleSheet = document.createElement("style");
     styleSheet.id = "ball-animation-runtime";
     styleSheet.innerHTML = `
         @keyframes orbitBallDynamic {
             0% { transform: translate(-50%, -50%) rotate(0deg) translate(95px) rotate(0deg); }
-            70% { transform: translate(-50%, -50%) rotate(-1080deg) translate(92px) rotate(1080deg); }
-            85% { transform: translate(-50%, -50%) rotate(-1260deg) translate(80px) rotate(1260deg); }
+            60% { transform: translate(-50%, -50%) rotate(-1440deg) translate(92px) rotate(1440deg); }
+            80% { transform: translate(-50%, -50%) rotate(-1620deg) translate(78px) rotate(1620deg); }
             100% { transform: translate(-50%, -50%) rotate(${ballFinalAngle}deg) translate(65px) rotate(${-ballFinalAngle}deg); }
         }
     `;
     document.head.appendChild(styleSheet);
-    ball.style.animation = "orbitBallDynamic 4s cubic-bezier(0.1, 0.5, 0.15, 1) forwards";
+    ball.style.animation = "orbitBallDynamic 5.5s cubic-bezier(0.1, 0.6, 0.2, 1) forwards";
 
-    // 4. Окончание вращения через 4 секунды
     setTimeout(() => {
-        isSpinning = false;
-        toggleControls(false);
-
-        // Расчет результатов
         let winSum = 0;
         if (bets[resultSector.c] > 0 && (resultSector.c === 'red' || resultSector.c === 'black')) {
             winSum += bets[resultSector.c] * 2;
@@ -203,18 +278,23 @@ spinBtn.addEventListener('click', () => {
             statusMessage.innerHTML = `ВЫПАЛО: <span style="color:#ffffff">${resultSector.n} (${colorText})</span>. СТАВКА ПРОИГРАЛА.`;
         }
 
-        // Очистка анимационных стилей и обновление данных
-        const oldStyle = document.getElementById("ball-animation-runtime");
-        if (oldStyle) oldStyle.remove();
+        setTimeout(() => {
+            isSpinning = false;
+            toggleControls(false);
 
-        bets = { red: 0, black: 0, zero: 0 };
-        updateInterface();
+            const oldStyle = document.getElementById("ball-animation-runtime");
+            if (oldStyle) oldStyle.remove();
 
-    }, 4000);
+            bets = { red: 0, black: 0, zero: 0 };
+            updateInterface();
+            statusMessage.textContent = "СДЕЛАЙТЕ ВАШИ СТАВКИ";
+        }, 2500);
+
+    }, 5500);
 });
 
 function toggleControls(disabled) {
     spinBtn.disabled = disabled;
     clearBtn.disabled = disabled;
-    refillBtn.disabled = disabled;
+    cheatConsoleBtn.disabled = disabled;
 }
