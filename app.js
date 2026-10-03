@@ -1,377 +1,258 @@
-// --- СВЕРХСТАБИЛЬНЫЙ СЕТЕВОЙ СИНХРОНИЗАТОР PUBNUB (P2P АРХИТЕКТУРА) ---
-const pubnub = new PubNub({
-    publishKey: "pub-c-4dbfe728-6623-455b-801c-fe9ef51a027f",
-    subscribeKey: "sub-c-57c2c892-947b-4029-bc55-e40656a84ef9",
-    userId: "casino_user_" + Math.random().toString(36).substring(2, 9)
-});
-
-let globalPlayersDatabase = {};
-
-// Подписываемся на единую сеть казино
-pubnub.subscribe({ channels: ["grand_velvet_network_v3"] });
-
-pubnub.addListener({
-    message: function(event) {
-        const msg = event.message;
-        if (!msg || !msg.action) return;
-
-        // 1. Кто-то обновил баланс или зарегистрировался
-        if (msg.action === "update_user") {
-            globalPlayersDatabase[msg.name] = {
-                name: msg.name,
-                password: msg.password,
-                balance: parseInt(msg.balance)
-            };
-        }
-        // 2. Новое устройство просит актуальную базу данных
-        else if (msg.action === "request_database") {
-            if (Object.keys(globalPlayersDatabase).length > 0) {
-                pubnub.publish({
-                    channel: "grand_velvet_network_v3",
-                    message: { action: "share_database", database: globalPlayersDatabase }
-                });
-            }
-        }
-        // 3. Получение полной базы от активных участников сети
-        else if (msg.action === "share_database") {
-            globalPlayersDatabase = Object.assign({}, globalPlayersDatabase, msg.database);
-        }
-        // 4. Административное удаление игрока
-        else if (msg.action === "delete_user") {
-            if (globalPlayersDatabase[msg.name]) {
-                delete globalPlayersDatabase[msg.name];
-                if (window.user && user.name === msg.name) location.reload();
-            }
-        }
-
-        // Постоянно обновляем интерфейс, если мы внутри игры
-        if (window.user && user.name && globalPlayersDatabase[user.name]) {
-            user.balance = globalPlayersDatabase[user.name].balance;
-            const balDisplay = document.getElementById('user-balance');
-            if (balDisplay) balDisplay.textContent = user.balance.toLocaleString();
-        }
-    }
-});
-
-// Сразу при загрузке страницы просим сеть поделиться актуальной базой
-setTimeout(() => {
-    pubnub.publish({
-        channel: "grand_velvet_network_v3",
-        message: { action: "request_database" }
-    });
-}, 500);
-
-// Загрузка резервной истории канала (если другие устройства сейчас выключены)
-pubnub.history({ channel: "grand_velvet_network_v3", count: 25 }, function(status, response) {
-    if (response && response.messages) {
-        response.messages.forEach(item => {
-            const msg = item.entry;
-            if (msg && msg.action === "update_user") {
-                globalPlayersDatabase[msg.name] = { name: msg.name, password: msg.password, balance: parseInt(msg.balance) };
-            }
-            if (msg && msg.action === "delete_user" && globalPlayersDatabase[msg.name]) {
-                delete globalPlayersDatabase[msg.name];
-            }
-        });
-    }
-});
-// --- АУДИОДВИЖОК КАЗИНО ---
-const AudioEngine = {
-    ctx: null,
-    init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); },
-    playChipSound() {
-        this.init(); const now = this.ctx.currentTime;
-        this.createClink(now, 920, 0.025); this.createClink(now + 0.011, 740, 0.018);
-    },
-    createClink(time, freq, duration) {
-        const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain(); const filter = this.ctx.createBiquadFilter();
-        osc.type = 'triangle'; osc.frequency.setValueAtTime(freq, time); osc.frequency.exponentialRampToValueAtTime(120, time + duration);
-        filter.type = 'bandpass'; filter.frequency.setValueAtTime(1500, time);
-        gain.gain.setValueAtTime(0.25, time); gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
-        osc.connect(filter); filter.connect(gain); gain.connect(this.ctx.destination);
-        osc.start(time); osc.stop(time + duration + 0.01);
-    },
-    playBallTick() {
-        this.init(); const now = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
-        osc.type = 'sine'; osc.frequency.setValueAtTime(260, now); osc.frequency.exponentialRampToValueAtTime(95, now + 0.02);
-        gain.gain.setValueAtTime(0.15, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.02);
-        osc.connect(gain); gain.connect(this.ctx.destination);
-        osc.start(now); osc.stop(now + 0.02);
-    },
-    playWinSound() {
-        this.init(); const now = this.ctx.currentTime;
-        const freqs = [329.63, 392.00, 523.25, 659.25];
-        freqs.forEach((f, i) => {
-            const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
-            osc.type = 'sine'; osc.frequency.setValueAtTime(f, now + i * 0.08);
-            gain.gain.setValueAtTime(0.12, now + i * 0.08); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
-            osc.connect(gain); gain.connect(this.ctx.destination);
-            osc.start(now + i * 0.08); osc.stop(now + 0.6);
-        });
-    }
-};
-
-let user = { name: "", password: "", balance: 1000 };
-let currentSelectedChip = 10;
-let bets = { red: 0, black: 0, zero: 0 };
-let isSpinning = false;
-
-const rouletteNumbers = [
-    { n: 0, c: 'zero' },  { n: 32, c: 'red' },   { n: 15, c: 'black' }, { n: 19, c: 'red' },
-    { n: 4, c: 'black' },  { n: 21, c: 'red' },   { n: 2, c: 'black' },  { n: 25, c: 'red' },
-    { n: 17, c: 'black' }, { n: 34, c: 'red' },   { n: 6, c: 'black' },  { n: 27, c: 'red' },
-    { n: 13, c: 'black' }, { n: 36, c: 'red' },   { n: 11, c: 'black' }, { n: 30, c: 'red' },
-    { n: 8, c: 'black' },  { n: 23, c: 'red' },   { n: 10, c: 'black' }, { n: 5, c: 'red' },
-    { n: 24, c: 'black' }, { n: 16, c: 'red' },   { n: 33, c: 'black' }, { n: 1, c: 'red' },
-    { n: 20, c: 'black' }, { n: 14, c: 'red' },   { n: 31, c: 'black' }, { n: 9, c: 'red' },
-    { n: 22, c: 'black' }, { n: 18, c: 'red' },   { n: 29, c: 'black' }, { n: 7, c: 'red' },
-    { n: 28, c: 'black' }, { n: 12, c: 'red' },   { n: 35, c: 'black' }, { n: 3, c: 'red' },
-    { n: 26, c: 'black' }
-];
-
-const sectorDegrees = 360 / 37;
-
-const authScreen = document.getElementById('auth-screen');
-const gameScreen = document.getElementById('game-screen');
-const usernameInput = document.getElementById('username-input');
-const passwordInput = document.getElementById('password-input');
-const loginBtn = document.getElementById('login-btn');
-const authErrorMsg = document.getElementById('auth-error-msg');
-const userNameDisplay = document.getElementById('user-name');
-const userBalanceDisplay = document.getElementById('user-balance');
-const wheel = document.getElementById('wheel');
-const ball = document.getElementById('roulette-ball');
-const statusMessage = document.getElementById('status-message');
-const spinBtn = document.getElementById('spin-btn');
-const clearBtn = document.getElementById('clear-btn');
-const cheatConsoleBtn = document.getElementById('cheat-console-btn');
-
-const globalLeaderboardBtn = document.getElementById('global-leaderboard-btn');
-const leaderboardModal = document.getElementById('leaderboard-modal');
-const closeLeaderboardBtn = document.getElementById('close-leaderboard-btn');
-const leaderboardRows = document.getElementById('leaderboard-rows');
-
-function renderWheelSectors() {
-    let gradientParts = [];
-    rouletteNumbers.forEach((sector, index) => {
-        let startDeg = index * sectorDegrees;
-        let endDeg = (index + 1) * sectorDegrees;
-        let color = sector.c === 'zero' ? '#116936' : (sector.c === 'red' ? '#bd1c1c' : '#1a1a1a');
-        gradientParts.push(`${color} ${startDeg}deg ${endDeg}deg`);
-    });
-    wheel.style.background = `conic-gradient(${gradientParts.join(', ')})`;
-}
-renderWheelSectors();
-
-loginBtn.addEventListener('click', () => {
-    AudioEngine.init();
-    const name = usernameInput.value.trim().toUpperCase().replace(/[^A-Z0-9_]/g, "");
-    const password = passwordInput.value.trim();
-
-    if (!name || !password) {
-        authErrorMsg.textContent = "ЗАПОЛНИТЕ ВСЕ ПОЛЯ";
-        return;
-    }
-
-    if (globalPlayersDatabase[name]) {
-        if (globalPlayersDatabase[name].password === password) {
-            user = globalPlayersDatabase[name];
-            enterCasino();
-        } else {
-            authErrorMsg.textContent = "НЕВЕРНЫЙ ПАРОЛЬ";
-        }
-    } else {
-        user = { name: name, password: password, balance: 1000 };
-        globalPlayersDatabase[name] = user;
-
-        pubnub.publish({
-            channel: "grand_velvet_network_v3",
-            message: { action: "update_user", name: user.name, password: user.password, balance: user.balance }
-        });
-
-        enterCasino();
-    }
-});
-
-function enterCasino() {
-    updateInterface();
-    authScreen.classList.remove('active');
-    setTimeout(() => gameScreen.classList.add('active'), 400);
+:root {
+    --gold-gradient: linear-gradient(135deg, #ffe066 0%, #f5af19 50%, #e65c00 100%);
+    --gold-glow: 0 0 15px rgba(245, 175, 25, 0.4);
+    --dark-bg: #030a06;
+    --felt-color: #062416;
 }
 
-function sendBalanceUpdate() {
-    pubnub.publish({
-        channel: "grand_velvet_network_v3",
-        message: { action: "update_user", name: user.name, password: user.password, balance: user.balance }
-    });
-}
-function updateInterface() {
-    userNameDisplay.textContent = user.name;
-    userBalanceDisplay.textContent = user.balance.toLocaleString();
-    ['red', 'black', 'zero'].forEach(type => {
-        const holder = document.getElementById(`chip-space-${type}`);
-        if (bets[type] > 0) { holder.textContent = bets[type]; holder.classList.remove('hidden'); }
-        else { holder.classList.add('hidden'); }
-    });
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Montserrat', sans-serif;
+    -webkit-user-select: none;
+    user-select: none;
 }
 
-document.querySelectorAll('.casino-chip').forEach(chip => {
-    chip.addEventListener('click', (e) => {
-        if (isSpinning) return;
-        AudioEngine.playChipSound();
-        document.querySelectorAll('.casino-chip').forEach(c => c.classList.remove('active'));
-        e.target.classList.add('active');
-        currentSelectedChip = parseInt(e.target.dataset.value);
-    });
-});
-
-document.querySelectorAll('.bet-spot').forEach(spot => {
-    spot.addEventListener('click', () => {
-        if (isSpinning) return;
-        const target = spot.dataset.target;
-        if (user.balance >= currentSelectedChip) {
-            AudioEngine.playChipSound();
-            user.balance -= currentSelectedChip;
-            bets[target] += currentSelectedChip;
-            updateInterface();
-            statusMessage.textContent = "СТАВКА ПРИНЯТА";
-        } else { statusMessage.textContent = "НЕДОСТАТОЧНО СРЕДСТВ"; }
-    });
-});
-
-clearBtn.addEventListener('click', () => {
-    if (isSpinning) return;
-    AudioEngine.playChipSound();
-    user.balance += (bets.red + bets.black + bets.zero);
-    bets = { red: 0, black: 0, zero: 0 };
-    updateInterface();
-    statusMessage.textContent = "СТАВКИ СБРОШЕНЫ";
-});
-
-globalLeaderboardBtn.addEventListener('click', () => {
-    AudioEngine.init();
-    leaderboardModal.classList.add('active');
-    renderLeaderboard();
-});
-
-closeLeaderboardBtn.addEventListener('click', () => { leaderboardModal.classList.remove('active'); });
-
-function renderLeaderboard() {
-    let players = Object.values(globalPlayersDatabase);
-    players.sort((a, b) => b.balance - a.balance);
-    leaderboardRows.innerHTML = "";
-
-    if (players.length === 0) {
-        leaderboardRows.innerHTML = `<tr><td colspan="3" style="text-align:center; opacity:0.5;">VIP-список пуст</td></tr>`;
-        return;
-    }
-
-    players.forEach((p, idx) => {
-        const row = document.createElement('tr');
-        row.innerHTML = `<td>#${idx + 1}</td><td>${p.name} ${p.name === user.name ? '<span style="color:#22c55e">(Вы)</span>' : ''}</td><td>${parseInt(p.balance).toLocaleString()} $</td>`;
-        leaderboardRows.appendChild(row);
-    });
+body, html {
+    width: 100%;
+    height: 100%;
+    background-color: var(--dark-bg);
+    color: #ffffff;
+    overflow: hidden;
 }
 
-cheatConsoleBtn.addEventListener('click', () => {
-    if (isSpinning) return;
-    const inputCode = prompt("ВВЕДИТЕ СЕКРЕТНЫЙ VIP-КОД:");
-    if (!inputCode) return;
-    const cleanCode = inputCode.trim().toLowerCase();
-
-    if (cleanCode === "cashin") {
-        user.balance += 5000; sendBalanceUpdate(); updateInterface();
-        alert("Код активирован! Зачислено +5,000 \$");
-    } else if (cleanCode === "cashout") {
-        user.balance = Math.max(0, user.balance - 500); sendBalanceUpdate(); updateInterface();
-        alert("Код активирован! Списано -500 \$");
-    } else if (cleanCode.startsWith("deleteplayer ")) {
-        const target = inputCode.substring(13).trim().toUpperCase();
-        if (!target) return;
-
-        pubnub.publish({
-            channel: "grand_velvet_network_v3",
-            message: { action: "delete_user", name: target }
-        });
-        alert(`Запрос на удаление игрока ${target} отправлен в глобальную сеть.`);
-    } else { alert("Неверный VIP-код!"); }
-});
-
-let wheelRotation = 0;
-
-spinBtn.addEventListener('click', () => {
-    if (isSpinning) return;
-    const activeBet = bets.red + bets.black + bets.zero;
-    if (activeBet === 0) { statusMessage.textContent = "СДЕЛАЙТЕ СТАВКУ НА СУКНО"; return; }
-
-    isSpinning = true; toggleControls(true);
-    document.querySelectorAll('.bet-spot').forEach(spot => spot.classList.remove('winning-highlight'));
-    statusMessage.textContent = "СТАВКИ СДЕЛАНЫ. КОЛЕСО ЗАПУЩЕНО";
-
-    const winningIndex = Math.floor(Math.random() * 37);
-    const resultSector = rouletteNumbers[winningIndex];
-    const duration = 6500; const startTime = performance.now();
-
-    const wheelTargetAngle = winningIndex * sectorDegrees;
-    const wheelSpins = 2160;
-    const startWheelAngle = wheelRotation;
-    const endWheelAngle = wheelRotation + wheelSpins + (360 - wheelTargetAngle);
-    wheelRotation = endWheelAngle;
-
-    wheel.style.transform = `rotate(${wheelRotation}deg)`;
-    ball.classList.remove('hidden');
-    let lastTickAngle = 0;
-
-    function animateSimulation(now) {
-        const elapsed = now - startTime; const progress = Math.min(elapsed / duration, 1);
-        const easeOutQuint = 1 - Math.pow(1 - progress, 5);
-        const currentWheelPos = startWheelAngle + (endWheelAngle - startWheelAngle) * easeOutQuint;
-
-        const ballExtraOrbits = 1080;
-        const currentBallExtra = ballExtraOrbits * Math.pow(1 - progress, 2.5);
-        const currentBallPos = ((currentWheelPos % 360) + wheelTargetAngle + 180) - currentBallExtra;
-        const currentRadius = 96 - (31 * easeOutQuint);
-
-        ball.style.transform = `translate(-50%, -50%) rotate(${currentBallPos}deg) translate(${currentRadius}px) rotate(${-currentBallPos}deg)`;
-
-        const absoluteRelativeAngle = Math.abs(currentBallPos - currentWheelPos);
-        if (Math.abs(absoluteRelativeAngle - lastTickAngle) >= sectorDegrees) {
-            if (progress < 0.85) AudioEngine.playBallTick();
-            lastTickAngle = absoluteRelativeAngle;
-        }
-
-        if (progress < 1) { requestAnimationFrame(animateSimulation); }
-        else { finishRound(resultSector); }
-    }
-    requestAnimationFrame(animateSimulation);
-});
-
-function finishRound(resultSector) {
-    let winSum = 0;
-    if (bets[resultSector.c] > 0 && (resultSector.c === 'red' || resultSector.c === 'black')) winSum += bets[resultSector.c] * 2;
-    if (resultSector.c === 'zero' && bets.zero > 0) winSum += bets.zero * 36;
-
-    user.balance += winSum; sendBalanceUpdate();
-    if (winSum > 0) AudioEngine.playWinSound();
-
-    const winningFieldElement = document.querySelector(`.spot-${resultSector.c}`);
-    if (winningFieldElement) winningFieldElement.classList.add('winning-highlight');
-
-    const colorText = resultSector.c === 'red' ? 'КРАСНОЕ' : (resultSector.c === 'black' ? 'ЧЕРНОЕ' : 'ЗЕРО');
-    if (winSum > 0) {
-        statusMessage.innerHTML = `ВЫПАЛО: <span style="color:#ffd700">${resultSector.n} (${colorText})</span>. ВЫИГРЫШ: <span style="color:#22c55e">+$${winSum}</span>!`;
-    } else {
-        statusMessage.innerHTML = `ВЫПАЛО: <span style="color:#ffffff">${resultSector.n} (${colorText})</span>. СТАВКА ПРОИГРАЛА.`;
-    }
-
-    setTimeout(() => {
-        isSpinning = false; toggleControls(false);
-        bets = { red: 0, black: 0, zero: 0 }; updateInterface();
-        statusMessage.textContent = "СДЕЛАЙТЕ ВАШИ СТАВКИ";
-    }, 3000);
+/* Кнопка ТОПа под никнеймом */
+.leaderboard-trigger-btn {
+    background: rgba(255, 255, 255, 0.08);
+    border: 1px solid rgba(255, 215, 0, 0.4);
+    color: #ffd700;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 10px;
+    font-weight: 800;
+    cursor: pointer;
+    margin-top: 4px;
+    transition: all 0.2s ease;
+    display: inline-block;
+    text-transform: uppercase;
 }
 
-function toggleControls(disabled) {
-    spinBtn.disabled = disabled; clearBtn.disabled = disabled; cheatConsoleBtn.disabled = disabled;
+.leaderboard-trigger-btn:hover {
+    background: #ffd700;
+    color: #000;
+    box-shadow: var(--gold-glow);
 }
+
+.screen {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    display: none;
+    opacity: 0;
+    transition: opacity 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.screen.active {
+    display: flex;
+    flex-direction: column;
+    opacity: 1;
+    z-index: 5;
+}
+
+#auth-screen {
+    background: radial-gradient(circle at center, #0a1f14 0%, var(--dark-bg) 100%);
+    justify-content: center;
+    align-items: center;
+}
+
+.auth-container { width: 90%; max-width: 380px; text-align: center; }
+.casino-brand { margin-bottom: 30px; }
+.brand-title {
+    font-family: 'Cinzel', serif;
+    font-size: 44px;
+    font-weight: 800;
+    letter-spacing: 6px;
+    background: var(--gold-gradient);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.brand-badge {
+    display: inline-block;
+    background: #ffffff;
+    color: #000000;
+    font-weight: 800;
+    font-size: 11px;
+    padding: 2px 14px;
+    letter-spacing: 4px;
+    margin-top: -5px;
+    transform: skewX(-10deg);
+}
+
+.brand-subtitle { font-size: 10px; letter-spacing: 5px; color: #617367; margin-top: 10px; font-weight: 700; }
+.auth-box {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(245, 175, 25, 0.15);
+    padding: 30px 25px;
+    border-radius: 20px;
+    box-shadow: 0 25px 50px rgba(0,0,0,0.6);
+    backdrop-filter: blur(10px);
+}
+
+.auth-box h2 { font-size: 18px; font-weight: 700; margin-bottom: 8px; }
+.auth-notice { font-size: 11px; color: #8da194; line-height: 1.4; margin-bottom: 20px; }
+.auth-error { color: #ff4d4d; font-size: 12px; margin-top: 10px; font-weight: 600; min-height: 15px; }
+
+.input-field { position: relative; margin-bottom: 15px; }
+.input-field input {
+    width: 100%;
+    padding: 14px;
+    border: none;
+    background: rgba(0, 0, 0, 0.5);
+    border-radius: 10px;
+    color: #ffffff;
+    font-size: 15px;
+    font-weight: 600;
+    text-align: center;
+    outline: none;
+}
+
+.input-field .glow-line {
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 2px;
+    background: var(--gold-gradient);
+    transition: width 0.3s ease;
+}
+
+.input-field input:focus ~ .glow-line { width: 100%; }
+.btn-premium {
+    width: 100%;
+    padding: 16px;
+    border: none;
+    border-radius: 10px;
+    font-size: 14px;
+    font-weight: 800;
+    text-transform: uppercase;
+    background: var(--gold-gradient);
+    color: #000000;
+    cursor: pointer;
+    box-shadow: 0 6px 20px rgba(245, 175, 25, 0.3);
+}
+
+.top-bar {
+    width: 100%;
+    padding: 12px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: linear-gradient(to bottom, #000000 0%, rgba(0,0,0,0.6) 100%);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    z-index: 10;
+}
+
+.player-tag { display: flex; flex-direction: column; align-items: flex-start; }
+.player-meta { display: flex; align-items: center; }
+.vip-status { background: var(--gold-gradient); color: #000; font-size: 9px; font-weight: 800; padding: 1px 5px; border-radius: 3px; margin-right: 6px; }
+.player-tag .name { font-weight: 700; font-size: 14px; color: #e0e0e0; }
+.wallet-label { font-size: 9px; color: #8da194; font-weight: 700; }
+.wallet-amount { font-size: 18px; font-weight: 800; display: flex; align-items: center; gap: 2px; }
+.currency-sign { color: #f5af19; }
+
+.table-scene {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 0 0 0;
+    background: radial-gradient(ellipse at bottom, #0d3d25 0%, var(--dark-bg) 80%);
+}
+
+.roulette-section { position: relative; }
+.roulette-wheel-container {
+    position: relative;
+    width: 230px;
+    height: 230px;
+    border-radius: 50%;
+    background: #120e0a;
+    box-shadow: 0 15px 35px rgba(0,0,0,0.8);
+    padding: 10px;
+}
+
+.wheel-pointer { position: absolute; top: -4px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 10px solid transparent; border-right: 10px solid transparent; border-top: 18px solid #ffd700; z-index: 12; }
+.wheel-outer-rim { width: 100%; height: 100%; border-radius: 50%; background: linear-gradient(135deg, #4a3728 0%, #1f140e 100%); border: 3px solid #ffd700; padding: 5px; }
+.wheel-spindle { width: 100%; height: 100%; border-radius: 50%; transition: transform 6s cubic-bezier(0.1, 0.4, 0.1, 1); position: relative; }
+.wheel-hub { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 44px; height: 44px; border-radius: 50%; background: radial-gradient(circle, #f5af19 0%, #2b1a01 100%); border: 2px solid #ffd700; z-index: 4; }
+.roulette-ball { position: absolute; width: 11px; height: 11px; background: radial-gradient(circle at 3px 3px, #ffffff 0%, #999999 100%); border-radius: 50%; top: 50%; left: 50%; z-index: 15; box-shadow: 0 3px 6px rgba(0,0,0,0.6); transform-origin: 50% 50%; }
+.display-board { width: 85%; max-width: 340px; background: rgba(0, 0, 0, 0.8); border: 1px solid rgba(255, 215, 0, 0.2); border-radius: 30px; padding: 8px 20px; text-align: center; }
+.ticker-message { font-size: 11px; font-weight: 800; letter-spacing: 1px; color: #ffd700; }
+
+.betting-felt { width: 92%; max-width: 400px; display: flex; gap: 10px; perspective: 400px; margin-bottom: 25px; }
+.bet-spot {
+    flex: 1;
+    height: 80px;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    cursor: pointer;
+    transform: rotateX(15deg);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.4);
+    transition: transform 0.1s, box-shadow 0.3s ease, border-color 0.3s ease;
+}
+
+.spot-red { background: linear-gradient(to bottom, #bd1c1c, #700909); border: 2px solid #ff4d4d; }
+.spot-black { background: linear-gradient(to bottom, #2e2e2e, #141414); border: 2px solid #555555; }
+.spot-zero { background: linear-gradient(to bottom, #116936, #07381b); border: 2px solid #22c55e; }
+.spot-title { font-size: 14px; font-weight: 800; }
+.spot-odds { font-size: 9px; opacity: 0.5; margin-top: 2px; }
+
+.bet-spot.winning-highlight {
+    border-color: #ffd700 !important;
+    box-shadow: 0 0 25px #ffd700, inset 0 0 15px rgba(255, 215, 0, 0.6) !important;
+    transform: rotateX(15deg) scale(1.06);
+    z-index: 10;
+}
+
+.chip-holder { position: absolute; width: 32px; height: 32px; border-radius: 50%; background: #ffffff; color: #000; font-weight: 800; font-size: 10px; display: flex; align-items: center; justify-content: center; border: 3px dashed #000; top: 50%; left: 50%; transform: translate(-50%, -50%); }
+
+.dealer-panel { width: 100%; background: linear-gradient(to top, #000000 0%, rgba(0,0,0,0.85) 100%); padding: 15px 15px 25px 15px; border-top-left-radius: 24px; border-top-right-radius: 24px; border-top: 1px solid rgba(255,215,0,0.15); }
+.chips-tray { display: flex; justify-content: center; gap: 14px; margin-bottom: 15px; }
+.casino-chip { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: #fff; cursor: pointer; border: 3px dashed rgba(255,255,255,0.7); transition: transform 0.2s; }
+.chip-cyan { background: radial-gradient(circle, #00b4db, #0083b0); }
+.chip-magenta { background: radial-gradient(circle, #f857a6, #ff5858); }
+.chip-gold { background: radial-gradient(circle, #f5af19, #e65c00); }
+.chip-purple { background: radial-gradient(circle, #b06ab3, #4568dc); }
+.casino-chip.active { transform: translateY(-10px) scale(1.15); border: 3px solid #ffffff; }
+
+.action-grid { display: flex; gap: 8px; }
+.action-btn { padding: 15px; border: none; border-radius: 12px; font-size: 12px; font-weight: 700; text-transform: uppercase; cursor: pointer; }
+.btn-secondary { background: rgba(255, 255, 255, 0.06); color: #a0aab2; border: 1px solid rgba(255,255,255,0.1); }
+.btn-action-spin { flex: 2; background: var(--gold-gradient); color: #000; font-weight: 800; box-shadow: var(--gold-glow); }
+.action-btn:disabled { opacity: 0.15 !important; cursor: not-allowed; }
+
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); z-index: 200; display: none; justify-content: center; align-items: center; }
+.modal-overlay.active { display: flex; }
+.modal-box { background: #06170f; border: 2px solid #ffd700; width: 90%; max-width: 400px; border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.8); overflow: hidden; animation: openModal 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+
+@keyframes openModal { 0% { transform: scale(0.7); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+.modal-header { background: #000; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,215,0,0.2); }
+.modal-header h3 { font-family: 'Cinzel', serif; color: #ffd700; font-size: 16px; }
+.close-modal-btn { background: none; border: none; color: #fff; font-size: 24px; cursor: pointer; }
+.modal-body { padding: 20px; max-height: 350px; overflow-y: auto; }
+
+.leaderboard-table { width: 100%; border-collapse: collapse; text-align: left; }
+.leaderboard-table th { padding: 10px; color: #8da194; font-size: 11px; border-bottom: 1px solid rgba(255,255,255,0.1); }
+.leaderboard-table td { padding: 12px 10px; font-size: 14px; border-bottom: 1px solid rgba(255,255,255,0.05); }
+.leaderboard-table tr:nth-child(1) { color: #ffd700; font-weight: 700; }
+.leaderboard-table tr:nth-child(2) { color: #c0c0c0; font-weight: 700; }
+.leaderboard-table tr:nth-child(3) { color: #cd7f32; font-weight: 700; }
+
+.hidden { display: none !important; }
