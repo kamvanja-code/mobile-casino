@@ -20,7 +20,7 @@
 
             <div class="auth-box">
                 <h2 id="auth-title">Вход / Регистрация</h2>
-                <p class="auth-notice">Если вы заходите впервые, для вашего никнейма создастся новый аккаунт с указанным паролем.</p>
+                <p class="auth-notice">База данных теперь глобальная. Придумайте уникальный никнейм и пароль для входа с любого устройства.</p>
 
                 <div class="input-field">
                     <input type="text" id="username-input" placeholder="Никнейм..." maxlength="14" autocomplete="off">
@@ -47,7 +47,6 @@
                     <span class="vip-status">VIP</span>
                     <span id="user-name" class="name">GUEST</span>
                 </div>
-                <!-- КНОПКА ТАБЛИЦЫ ЛИДЕРОВ СТРОГО ПОД НИКНЕЙМОМ -->
                 <button id="global-leaderboard-btn" class="leaderboard-trigger-btn">🏆 ТОП ИГРОКОВ</button>
             </div>
             <div class="wallet">
@@ -61,8 +60,6 @@
 
         <!-- Игровая сцена -->
         <main class="table-scene">
-
-            <!-- Секция с рулеткой -->
             <div class="roulette-section">
                 <div class="roulette-wheel-container">
                     <div class="wheel-pointer"></div>
@@ -71,17 +68,14 @@
                             <div class="wheel-hub"></div>
                         </div>
                     </div>
-                    <!-- Анимированный шарик -->
                     <div id="roulette-ball" class="roulette-ball hidden"></div>
                 </div>
             </div>
 
-            <!-- Информационное табло результатов -->
             <div class="display-board">
                 <div id="status-message" class="ticker-message">СДЕЛАЙТЕ ВАШИ СТАВКИ</div>
             </div>
 
-            <!-- Сукно игрового стола (Ставки) -->
             <div class="betting-felt">
                 <div class="bet-spot spot-red" data-target="red">
                     <span class="spot-title">RED</span>
@@ -102,7 +96,6 @@
                 </div>
             </div>
 
-            <!-- Панель управления фишками и запуском -->
             <div class="dealer-panel">
                 <div class="chips-tray">
                     <div class="casino-chip chip-cyan active" data-value="10">10</div>
@@ -117,11 +110,10 @@
                     <button id="cheat-console-btn" class="action-btn btn-secondary">📜 КОДЫ</button>
                 </div>
             </div>
-
         </main>
     </div>
 
-    <!-- МОДАЛЬНОЕ ОКНО: ТАБЛИЦА ЛИДЕРОВ -->
+    <!-- ТАБЛИЦА ЛИДЕРОВ -->
     <div id="leaderboard-modal" class="modal-overlay">
         <div class="modal-box">
             <div class="modal-header">
@@ -137,14 +129,14 @@
                             <th>Баланс</th>
                         </tr>
                     </thead>
-                    <tbody id="leaderboard-rows">
-                        <!-- Сюда JS вставит строки игроков -->
-                    </tbody>
+                    <tbody id="leaderboard-rows"></tbody>
                 </table>
             </div>
         </div>
     </div>
 
+    <!-- Подключаем официальную библиотеку PubNub для real-time связи -->
+    <script src="https://pubnub.com"></script>
     <script src="app.js"></script>
 </body>
 </html>
