@@ -1,25 +1,33 @@
-// --- ВЫДЕЛЕННАЯ ОБЛАЧНАЯ БАЗА ДАННЫХ GOOGLE FIREBASE ---
-const FIREBASE_URL = "https://firebaseio.com";
+// --- ВЫДЕЛЕННАЯ СТАБИЛЬНАЯ МИРОВАЯ БАЗА ДАННЫХ ДЛЯ КАЗИНО (БЕЗ CORS ОШИБОК) ---
+// Этот облачный JSON-контейнер объединяет балансы и пароли всех игроков со всего мира.
+const NPOINT_BIN_ID = "0ba967406a457497d397";
+const CLOUD_URL = `https://npoint.io{NPOINT_BIN_ID}`;
 
-async function saveToCloud(playerName, playerData) {
+// Запись данных в облако
+async function saveToCloud(allPlayersData) {
     try {
-        await fetch(`${FIREBASE_URL}/${playerName}.json`, {
-            method: 'PUT',
+        await fetch(CLOUD_URL, {
+            method: 'POST', // Перезаписываем весь JSON-объект в облаке одной командой
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(playerData)
+            body: JSON.stringify(allPlayersData)
         });
-    } catch (e) { console.error("Ошибка сохранения в Firebase:", e); }
+    } catch (e) { console.error("Ошибка сохранения в облако Npoint:", e); }
 }
 
-async function getFromCloud(playerName) {
+// Чтение данных из облака
+async function fetchAllPlayers() {
     try {
-        const response = await fetch(`${FIREBASE_URL}/${playerName}.json`);
-        if (!response.ok) return null;
-        return await response.json();
-    } catch (e) { console.error("Ошибка чтения из Firebase:", e); return null; }
+        const response = await fetch(CLOUD_URL);
+        if (!response.ok) return {};
+        const data = await response.json();
+        return data || {};
+    } catch (e) {
+        console.error("Ошибка чтения из облака Npoint:", e);
+        return null;
+    }
 }
 
-// --- СИНТЕЗАТОР ЗВУКОВ КАЗИНО ---
+// --- ЗВУКОВОЙ ДВИЖОК С СОУДАРЕНИЕМ ТЯЖЕЛЫХ ФИШЕК ---
 const AudioEngine = {
     ctx: null,
     init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); },
@@ -77,7 +85,7 @@ const AudioEngine = {
     }
 };
 
-let user = { name: "", balance: 1000 };
+let user = { name: "", password: "", balance: 1000 };
 let currentSelectedChip = 10;
 let bets = { red: 0, black: 0, zero: 0 };
 let isSpinning = false;
@@ -128,6 +136,7 @@ function renderWheelSectors() {
 }
 renderWheelSectors();
 
+// Логика безопасного входа и регистрации
 loginBtn.addEventListener('click', async () => {
     AudioEngine.init();
     const name = usernameInput.value.trim().toUpperCase().replace(/[^A-Z0-9_]/g, "");
@@ -139,22 +148,31 @@ loginBtn.addEventListener('click', async () => {
     }
 
     loginBtn.disabled = true;
-    authErrorMsg.textContent = "СВЯЗЬ С СЕРВЕРОМ FIREBASE...";
+    authErrorMsg.textContent = "ПОДКЛЮЧЕНИЕ К СЕРВЕРУ КАЗИНО...";
 
-    const cloudSave = await getFromCloud(name);
+    const allPlayers = await fetchAllPlayers();
 
-    if (cloudSave) {
-        if (cloudSave.password === password) {
-            user = cloudSave;
+    if (allPlayers === null) {
+        authErrorMsg.textContent = "ОШИБКА СЕТИ. СЕРВЕР ПЕРЕГРУЖЕН.";
+        loginBtn.disabled = false;
+        return;
+    }
+
+    if (allPlayers[name]) {
+        // Игрок уже существует в мире — проверяем пароль
+        if (allPlayers[name].password === password) {
+            user = allPlayers[name];
             authErrorMsg.textContent = "";
             enterCasino();
         } else {
-            authErrorMsg.textContent = "НЕВЕРНЫЙ ПАРОЛЬ";
+            authErrorMsg.textContent = "НЕВЕРНЫЙ ПАРОЛЬ ДЛЯ ЭТОГО VIP-НИКА";
             loginBtn.disabled = false;
         }
     } else {
+        // Создаем абсолютно новый мировой аккаунт
         user = { name: name, password: password, balance: 1000 };
-        await saveSession();
+        allPlayers[name] = user;
+        await saveToCloud(allPlayers);
         authErrorMsg.textContent = "";
         enterCasino();
     }
@@ -168,7 +186,11 @@ function enterCasino() {
 
 async function saveSession() {
     localStorage.setItem(`gv_user_${user.name}`, JSON.stringify(user));
-    await saveToCloud(user.name, user);
+    const allPlayers = await fetchAllPlayers();
+    if (allPlayers) {
+        allPlayers[user.name] = user;
+        await saveToCloud(allPlayers);
+    }
 }
 
 function updateInterface() {
@@ -214,6 +236,7 @@ clearBtn.addEventListener('click', () => {
     statusMessage.textContent = "СТАВКИ СБРОШЕНЫ";
 });
 
+// Глобальный лидерборд
 globalLeaderboardBtn.addEventListener('click', async () => {
     AudioEngine.init();
     leaderboardModal.classList.add('active');
@@ -224,29 +247,24 @@ globalLeaderboardBtn.addEventListener('click', async () => {
 closeLeaderboardBtn.addEventListener('click', () => { leaderboardModal.classList.remove('active'); });
 
 async function renderLeaderboard() {
-    try {
-        const response = await fetch(`${FIREBASE_URL}.json`);
-        if (!response.ok) throw new Error();
-        const cloudData = await response.json();
+    const cloudData = await fetchAllPlayers();
 
-        if (!cloudData) {
-            leaderboardRows.innerHTML = `<tr><td colspan="3" style="text-align:center; opacity:0.5;">Нет VIP-гостей</td></tr>`;
-            return;
-        }
-
-        let players = Object.values(cloudData);
-        players.sort((a, b) => b.balance - a.balance);
-        leaderboardRows.innerHTML = "";
-
-        players.forEach((p, idx) => {
-            const row = document.createElement('tr');
-            row.innerHTML = `<td>#${idx + 1}</td><td>${p.name} ${p.name === user.name ? '<span style="color:#22c55e">(Вы)</span>' : ''}</td><td>${p.balance.toLocaleString()} $</td>`;
-            leaderboardRows.appendChild(row);
-        });
-    } catch(e) {
-        leaderboardRows.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#ff4d4d;">ОШИБКА ОБЛАКА FIREBASE</td></tr>`;
+    if (!cloudData || Object.keys(cloudData).length === 0) {
+        leaderboardRows.innerHTML = `<tr><td colspan="3" style="text-align:center; opacity:0.5;">VIP-список пуст</td></tr>`;
+        return;
     }
+
+    let players = Object.values(cloudData);
+    players.sort((a, b) => b.balance - a.balance);
+    leaderboardRows.innerHTML = "";
+
+    players.forEach((p, idx) => {
+        const row = document.createElement('tr');
+        row.innerHTML = `<td>#${idx + 1}</td><td>${p.name} ${p.name === user.name ? '<span style="color:#22c55e">(Вы)</span>' : ''}</td><td>${p.balance.toLocaleString()} $</td>`;
+        leaderboardRows.appendChild(row);
+    });
 }
+// Консоль кодов управления базой данных
 cheatConsoleBtn.addEventListener('click', async () => {
     if (isSpinning) return;
     const inputCode = prompt("ВВЕДИТЕ СЕКРЕТНЫЙ VIP-КОД:");
@@ -262,15 +280,19 @@ cheatConsoleBtn.addEventListener('click', async () => {
     } else if (cleanCode.startsWith("deleteplayer ")) {
         const target = inputCode.substring(13).trim().toUpperCase();
         if (!target) return;
-        try {
-            await fetch(`${FIREBASE_URL}/${target}.json`, { method: 'DELETE' });
+
+        const allPlayers = await fetchAllPlayers();
+        if (allPlayers && allPlayers[target]) {
+            delete allPlayers[target];
+            await saveToCloud(allPlayers);
             localStorage.removeItem(`gv_user_${target}`);
-            alert(`Игрок ${target} удален.`);
+            alert(`Игрок ${target} полностью удален из мировой базы.`);
             if (target === user.name) location.reload();
-        } catch(e) { alert("Ошибка удаления."); }
+        } else { alert("Игрок не найден."); }
     } else { alert("Неверный VIP-код!"); }
 });
 
+// Анимация рулетки без рывков и сопоставление полей
 let wheelRotation = 0;
 
 spinBtn.addEventListener('click', () => {
@@ -329,6 +351,7 @@ function finishRound(resultSector) {
 
     if (winSum > 0) AudioEngine.playWinSound();
 
+    // Подсветка выигравшего поля по действительному цвету сектора
     const winningFieldElement = document.querySelector(`.spot-${resultSector.c}`);
     if (winningFieldElement) {
         winningFieldElement.classList.add('winning-highlight');
