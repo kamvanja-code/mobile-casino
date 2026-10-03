@@ -22,22 +22,23 @@ body, html {
     overflow: hidden;
 }
 
-/* Плавающая кнопка ТОПа */
+/* Кнопка ТОПа перенесена в левый нижний угол экрана, над панелью ставок */
 .leaderboard-trigger-btn {
     position: absolute;
-    top: 15px;
-    left: 20px;
+    bottom: 175px;
+    left: 15px;
     z-index: 100;
-    background: rgba(255, 255, 255, 0.07);
-    border: 1px solid rgba(255, 215, 0, 0.3);
+    background: rgba(0, 0, 0, 0.6);
+    border: 1px solid rgba(255, 215, 0, 0.4);
     color: #ffd700;
-    padding: 8px 14px;
+    padding: 10px 16px;
     border-radius: 20px;
     font-size: 11px;
-    font-weight: 700;
+    font-weight: 800;
     cursor: pointer;
     backdrop-filter: blur(5px);
     transition: all 0.2s ease;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
 }
 
 .leaderboard-trigger-btn:hover {
@@ -46,7 +47,6 @@ body, html {
     box-shadow: var(--gold-glow);
 }
 
-/* Настройки экранов */
 .screen {
     position: absolute;
     width: 100%;
@@ -63,21 +63,14 @@ body, html {
     z-index: 5;
 }
 
-/* Экран авторизации */
 #auth-screen {
     background: radial-gradient(circle at center, #0a1f14 0%, var(--dark-bg) 100%);
     justify-content: center;
     align-items: center;
 }
 
-.auth-container {
-    width: 90%;
-    max-width: 380px;
-    text-align: center;
-}
-
+.auth-container { width: 90%; max-width: 380px; text-align: center; }
 .casino-brand { margin-bottom: 30px; }
-
 .brand-title {
     font-family: 'Cinzel', serif;
     font-size: 44px;
@@ -100,14 +93,7 @@ body, html {
     transform: skewX(-10deg);
 }
 
-.brand-subtitle {
-    font-size: 10px;
-    letter-spacing: 5px;
-    color: #617367;
-    margin-top: 10px;
-    font-weight: 700;
-}
-
+.brand-subtitle { font-size: 10px; letter-spacing: 5px; color: #617367; margin-top: 10px; font-weight: 700; }
 .auth-box {
     background: rgba(255, 255, 255, 0.02);
     border: 1px solid rgba(245, 175, 25, 0.15);
@@ -147,7 +133,6 @@ body, html {
 }
 
 .input-field input:focus ~ .glow-line { width: 100%; }
-
 .btn-premium {
     width: 100%;
     padding: 16px;
@@ -161,10 +146,10 @@ body, html {
     cursor: pointer;
     box-shadow: 0 6px 20px rgba(245, 175, 25, 0.3);
 }
-/* Верхний статус-бар */
+
 .top-bar {
     width: 100%;
-    padding: 12px 20px 12px 140px;
+    padding: 12px 20px;
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -173,16 +158,7 @@ body, html {
     z-index: 10;
 }
 
-.vip-status {
-    background: var(--gold-gradient);
-    color: #000;
-    font-size: 9px;
-    font-weight: 800;
-    padding: 1px 5px;
-    border-radius: 3px;
-    margin-right: 6px;
-}
-
+.vip-status { background: var(--gold-gradient); color: #000; font-size: 9px; font-weight: 800; padding: 1px 5px; border-radius: 3px; margin-right: 6px; }
 .player-tag .name { font-weight: 700; font-size: 13px; color: #e0e0e0; }
 .wallet-label { font-size: 9px; color: #8da194; font-weight: 700; }
 .wallet-amount { font-size: 18px; font-weight: 800; display: flex; align-items: center; gap: 2px; }
@@ -198,7 +174,6 @@ body, html {
     background: radial-gradient(ellipse at bottom, #0d3d25 0%, var(--dark-bg) 80%);
 }
 
-/* Секция рулетки */
 .roulette-section { position: relative; }
 .roulette-wheel-container {
     position: relative;
@@ -223,63 +198,14 @@ body, html {
     z-index: 12;
 }
 
-.wheel-outer-rim {
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    background: linear-gradient(135deg, #4a3728 0%, #1f140e 100%);
-    border: 3px solid #ffd700;
-    padding: 5px;
-}
-
-.wheel-spindle {
-    width: 100%;
-    height: 100%;
-    border-radius: 50%;
-    transition: transform 5.5s cubic-bezier(0.075, 0.82, 0.165, 1);
-    position: relative;
-}
-
-.wheel-hub {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    transform: translate(-50%, -50%);
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    background: radial-gradient(circle, #f5af19 0%, #2b1a01 100%);
-    border: 2px solid #ffd700;
-    z-index: 4;
-}
-
-.roulette-ball {
-    position: absolute;
-    width: 11px;
-    height: 11px;
-    background: radial-gradient(circle at 3px 3px, #ffffff 0%, #999999 100%);
-    border-radius: 50%;
-    top: 50%;
-    left: 50%;
-    z-index: 15;
-    box-shadow: 0 3px 6px rgba(0,0,0,0.6);
-    transform-origin: 50% 50%;
-}
-/* Табло */
-.display-board {
-    width: 85%;
-    max-width: 340px;
-    background: rgba(0, 0, 0, 0.8);
-    border: 1px solid rgba(255, 215, 0, 0.2);
-    border-radius: 30px;
-    padding: 8px 20px;
-    text-align: center;
-}
-
+.wheel-outer-rim { width: 100%; height: 100%; border-radius: 50%; background: linear-gradient(135deg, #4a3728 0%, #1f140e 100%); border: 3px solid #ffd700; padding: 5px; }
+.wheel-spindle { width: 100%; height: 100%; border-radius: 50%; transition: transform 6s cubic-bezier(0.1, 0.4, 0.1, 1); position: relative; }
+.wheel-hub { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 44px; height: 44px; border-radius: 50%; background: radial-gradient(circle, #f5af19 0%, #2b1a01 100%); border: 2px solid #ffd700; z-index: 4; }
+.roulette-ball { position: absolute; width: 11px; height: 11px; background: radial-gradient(circle at 3px 3px, #ffffff 0%, #999999 100%); border-radius: 50%; top: 50%; left: 50%; z-index: 15; box-shadow: 0 3px 6px rgba(0,0,0,0.6); transform-origin: 50% 50%; }
+.display-board { width: 85%; max-width: 340px; background: rgba(0, 0, 0, 0.8); border: 1px solid rgba(255, 215, 0, 0.2); border-radius: 30px; padding: 8px 20px; text-align: center; }
 .ticker-message { font-size: 11px; font-weight: 800; letter-spacing: 1px; color: #ffd700; }
 
-/* Стол сукна */
-.betting-felt { width: 92%; max-width: 400px; display: flex; gap: 10px; perspective: 400px; }
+.betting-felt { width: 92%; max-width: 400px; display: flex; gap: 10px; perspective: 400px; margin-bottom: 45px; }
 .bet-spot {
     flex: 1;
     height: 80px;
@@ -292,7 +218,7 @@ body, html {
     cursor: pointer;
     transform: rotateX(15deg);
     box-shadow: 0 6px 12px rgba(0,0,0,0.4);
-    transition: transform 0.1s;
+    transition: transform 0.1s, box-shadow 0.3s ease, border-color 0.3s ease;
 }
 
 .spot-red { background: linear-gradient(to bottom, #bd1c1c, #700909); border: 2px solid #ff4d4d; }
@@ -301,48 +227,19 @@ body, html {
 .spot-title { font-size: 14px; font-weight: 800; }
 .spot-odds { font-size: 9px; opacity: 0.5; margin-top: 2px; }
 
-.chip-holder {
-    position: absolute;
-    width: 32px;
-    height: 32px;
-    border-radius: 50%;
-    background: #ffffff;
-    color: #000;
-    font-weight: 800;
-    font-size: 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border: 3px dashed #000;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
+/* ЭФФЕКТ ПОДСВЕЧИВАНИЯ ВЫИГРАВШЕГО ПОЛЯ СТАВКИ */
+.bet-spot.winning-highlight {
+    border-color: #ffd700 !important;
+    box-shadow: 0 0 25px #ffd700, inset 0 0 15px rgba(255, 215, 0, 0.5) !important;
+    transform: rotateX(15deg) scale(1.05);
+    z-index: 10;
 }
 
-/* Нижняя панель управления */
-.dealer-panel {
-    width: 100%;
-    background: linear-gradient(to top, #000000 0%, rgba(0,0,0,0.85) 100%);
-    padding: 15px 15px 25px 15px;
-    border-top-left-radius: 24px;
-    border-top-right-radius: 24px;
-    border-top: 1px solid rgba(255,215,0,0.15);
-}
+.chip-holder { position: absolute; width: 32px; height: 32px; border-radius: 50%; background: #ffffff; color: #000; font-weight: 800; font-size: 10px; display: flex; align-items: center; justify-content: center; border: 3px dashed #000; top: 50%; left: 50%; transform: translate(-50%, -50%); }
 
+.dealer-panel { width: 100%; background: linear-gradient(to top, #000000 0%, rgba(0,0,0,0.85) 100%); padding: 15px 15px 25px 15px; border-top-left-radius: 24px; border-top-right-radius: 24px; border-top: 1px solid rgba(255,215,0,0.15); }
 .chips-tray { display: flex; justify-content: center; gap: 14px; margin-bottom: 15px; }
-.casino-chip {
-    width: 44px;
-    height: 44px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 11px;
-    font-weight: 800;
-    cursor: pointer;
-    border: 3px dashed rgba(255,255,255,0.7);
-    transition: transform 0.2s;
-}
-
+.casino-chip { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: #fff; cursor: pointer; border: 3px dashed rgba(255,255,255,0.7); transition: transform 0.2s; }
 .chip-cyan { background: radial-gradient(circle, #00b4db, #0083b0); }
 .chip-magenta { background: radial-gradient(circle, #f857a6, #ff5858); }
 .chip-gold { background: radial-gradient(circle, #f5af19, #e65c00); }
@@ -355,35 +252,12 @@ body, html {
 .btn-action-spin { flex: 2; background: var(--gold-gradient); color: #000; font-weight: 800; box-shadow: var(--gold-glow); }
 .action-btn:disabled { opacity: 0.15 !important; cursor: not-allowed; }
 
-/* Окна лидирования (Модальные) */
-.modal-overlay {
-    position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background: rgba(0,0,0,0.8);
-    backdrop-filter: blur(8px);
-    z-index: 200;
-    display: none;
-    justify-content: center;
-    align-items: center;
-}
+.modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); backdrop-filter: blur(8px); z-index: 200; display: none; justify-content: center; align-items: center; }
 .modal-overlay.active { display: flex; }
-.modal-box {
-    background: #06170f; border: 2px solid #ffd700;
-    width: 90%; max-width: 400px; border-radius: 20px;
-    box-shadow: 0 20px 50px rgba(0,0,0,0.8); overflow: hidden;
-    animation: openModal 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
-}
+.modal-box { background: #06170f; border: 2px solid #ffd700; width: 90%; max-width: 400px; border-radius: 20px; box-shadow: 0 20px 50px rgba(0,0,0,0.8); overflow: hidden; animation: openModal 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
 
-@keyframes openModal {
-    0% { transform: scale(0.7); opacity: 0; }
-    100% { transform: scale(1); opacity: 1; }
-}
-
-.modal-header {
-    background: #000; padding: 15px 20px;
-    display: flex; justify-content: space-between; align-items: center;
-    border-bottom: 1px solid rgba(255,215,0,0.2);
-}
+@keyframes openModal { 0% { transform: scale(0.7); opacity: 0; } 100% { transform: scale(1); opacity: 1; } }
+.modal-header { background: #000; padding: 15px 20px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,215,0,0.2); }
 .modal-header h3 { font-family: 'Cinzel', serif; color: #ffd700; font-size: 16px; }
 .close-modal-btn { background: none; border: none; color: #fff; font-size: 24px; cursor: pointer; }
 .modal-body { padding: 20px; max-height: 350px; overflow-y: auto; }
