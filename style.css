@@ -1,0 +1,342 @@
+/* Общие настройки */
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Montserrat', sans-serif;
+    -webkit-user-select: none;
+    user-select: none;
+}
+
+body, html {
+    width: 100%;
+    height: 100%;
+    background-color: #051911; /* Глубокий благородный зеленый */
+    background-image: radial-gradient(circle at center, #0c3826 0%, #051911 100%);
+    color: #ffffff;
+    overflow: hidden;
+}
+
+/* Экраны */
+.screen {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    display: none;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+}
+
+.screen.active {
+    display: flex;
+    opacity: 1;
+}
+
+/* Экран Авторизации */
+.auth-card {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 215, 0, 0.2);
+    backdrop-filter: blur(10px);
+    padding: 40px 30px;
+    border-radius: 24px;
+    text-align: center;
+    width: 90%;
+    max-width: 360px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.5), inset 0 1px 0 rgba(255,255,255,0.1);
+}
+
+.logo {
+    font-size: 32px;
+    font-weight: 800;
+    letter-spacing: 2px;
+    margin-bottom: 10px;
+}
+
+.gold-text {
+    color: #ffd700;
+    text-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+}
+
+.subtitle {
+    color: #a0aab2;
+    font-size: 13px;
+    margin-bottom: 30px;
+}
+
+.input-group input {
+    width: 100%;
+    padding: 16px;
+    border-radius: 12px;
+    border: 1px solid rgba(255,255,255,0.1);
+    background: rgba(0,0,0,0.4);
+    color: #fff;
+    font-size: 16px;
+    text-align: center;
+    margin-bottom: 20px;
+    outline: none;
+    transition: border 0.3s;
+}
+
+.input-group input:focus {
+    border-color: #ffd700;
+    box-shadow: 0 0 10px rgba(255, 215, 0, 0.2);
+}
+
+/* Кнопки */
+.btn {
+    width: 100%;
+    padding: 16px;
+    border-radius: 12px;
+    border: none;
+    font-size: 16px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.btn-gold {
+    background: linear-gradient(135deg, #ffd700 0%, #b8860b 100%);
+    color: #000;
+    box-shadow: 0 5px 15px rgba(255, 215, 0, 0.3);
+}
+
+.btn-gold:active {
+    transform: scale(0.98);
+}
+
+/* Игровой экран */
+.header {
+    width: 100%;
+    padding: 15px 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.4);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.user-info {
+    font-weight: 600;
+    font-size: 14px;
+    color: #e0e0e0;
+}
+
+.balance-container {
+    background: rgba(255, 215, 0, 0.1);
+    padding: 8px 16px;
+    border-radius: 20px;
+    border: 1px solid rgba(255, 215, 0, 0.3);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.balance-label {
+    font-size: 10px;
+    color: #ffd700;
+    font-weight: 800;
+}
+
+.balance-value {
+    font-weight: 800;
+    color: #fff;
+    font-size: 16px;
+}
+
+/* Рулетка */
+.game-container {
+    flex: 1;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-around;
+    padding: 10px;
+    max-width: 450px;
+}
+
+.roulette-wrapper {
+    position: relative;
+    width: 240px;
+    height: 240px;
+    margin: 10px 0;
+}
+
+/* Стрелочка-маркер */
+.marker {
+    position: absolute;
+    top: -12px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0;
+    height: 0;
+    border-left: 12px solid transparent;
+    border-right: 12px solid transparent;
+    border-top: 20px solid #ffd700;
+    z-index: 10;
+    filter: drop-shadow(0 2px 5px rgba(0,0,0,0.5));
+}
+
+.wheel {
+    width: 100%;
+    height: 100%;
+    border-radius: 50%;
+    border: 8px solid #1a1a1a;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.7), inset 0 0 15px rgba(0,0,0,0.6), 0 0 0 2px #ffd700;
+    /* Конический градиент создает сектора (всего 37 секторов: 0 - зеро, остальные чередуются) */
+    background: conic-gradient(
+        #008000 0deg 9.73deg,     /* 0 Green */
+        #ff3333 9.73deg 19.46deg, /* 32 Red */
+        #1a1a1a 19.46deg 29.19deg /* 15 Black ... упрощено визуально */
+    );
+    transition: transform 4s cubic-bezier(0.1, 0.8, 0.1, 1);
+}
+
+.status-message {
+    font-size: 14px;
+    font-weight: 600;
+    color: #ffd700;
+    text-align: center;
+    min-height: 20px;
+}
+
+/* Игровое поле (Ставки) */
+.betting-board {
+    width: 100%;
+    display: flex;
+    gap: 10px;
+    padding: 0 10px;
+}
+
+.bet-option {
+    flex: 1;
+    height: 70px;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    position: relative;
+    cursor: pointer;
+    font-weight: 800;
+    font-size: 12px;
+    border: 2px solid rgba(255,255,255,0.1);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    transition: transform 0.1s;
+}
+
+.bet-option:active {
+    transform: scale(0.95);
+}
+
+.target-red { background: linear-gradient(135deg, #d32f2f 0%, #9a0007 100%); }
+.target-black { background: linear-gradient(135deg, #424242 0%, #1a1a1a 100%); }
+.target-zero { background: linear-gradient(135deg, #2e7d32 0%, #1b5e20 100%); border-color: #ffd700; }
+
+.multiplier {
+    font-size: 10px;
+    opacity: 0.6;
+    margin-top: 2px;
+}
+
+/* Стилизация фишки, лежащей на поле */
+.placed-chip {
+    position: absolute;
+    top: -10px;
+    right: -5px;
+    background: #fff;
+    color: #000;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    border: 2px dashed #000;
+    font-size: 9px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.5);
+}
+
+.hidden { display: none !important; }
+
+/* Нижняя панель */
+.controls-panel {
+    width: 100%;
+    background: rgba(0,0,0,0.5);
+    padding: 15px;
+    border-top-left-radius: 20px;
+    border-top-right-radius: 20px;
+    border-top: 1px solid rgba(255,215,0,0.1);
+}
+
+/* Селектор фишек */
+.chips-selector {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-bottom: 15px;
+}
+
+.chip {
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 800;
+    cursor: pointer;
+    border: 3px dashed #fff;
+    box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+    transition: transform 0.2s, border-color 0.2s;
+}
+
+.chip-10  { background: #1e88e5; }
+.chip-50  { background: #8e24aa; }
+.chip-100 { background: #e53935; }
+.chip-500 { background: #ffb300; color: #000; border-dashed-color: #000;}
+
+.chip.active {
+    transform: translateY(-8px) scale(1.1);
+    border-style: solid;
+    box-shadow: 0 8px 15px rgba(255,215,0,0.4);
+}
+
+/* Кнопки действий */
+.action-buttons {
+    display: flex;
+    gap: 10px;
+}
+
+.btn-spin {
+    flex: 2;
+    background: linear-gradient(135deg, #ffd700 0%, #ff8c00 100%);
+    color: #000;
+}
+
+.btn-clear {
+    flex: 1;
+    background: rgba(255, 255, 255, 0.1);
+    color: #fff;
+    font-size: 12px;
+}
+
+.btn-refill {
+    flex: 1;
+    background: #00c853;
+    color: #fff;
+    font-size: 12px;
+}
+
+.btn:disabled {
+    opacity: 0.3;
+    cursor: not-allowed;
+    transform: none !important;
+}

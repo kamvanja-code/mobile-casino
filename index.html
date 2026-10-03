@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мобильная Рулетка</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Экран авторизации -->
+        <div id="auth-screen" class="screen">
+            <div class="logo">🎰 LUCKY WHEEL</div>
+            <h2>Вход в казино</h2>
+            <div class="form-group">
+                <input type="text" id="username" placeholder="Введите ваш никнейм" autocomplete="off">
+            </div>
+            <button id="login-btn" class="btn-main">Войти / Создать аккаунт</button>
+        </div>
+
+        <!-- Главный экран игры -->
+        <div id="game-screen" class="screen hidden">
+            <header class="game-header">
+                <div class="user-info">
+                    👤 <span id="display-username">Игрок</span>
+                </div>
+                <div class="balance-info">
+                    💰 <span id="balance">1000</span> фишек
+                </div>
+            </header>
+
+            <main class="game-body">
+                <!-- Рулетка -->
+                <div class="roulette-container">
+                    <div class="roulette-wheel" id="wheel">
+                        <div class="wheel-ball" id="ball"></div>
+                    </div>
+                    <div id="result-display" class="result-display">...</div>
+                </div>
+
+                <!-- Поле ставок (упрощенное под мобильные) -->
+                <div class="betting-board">
+                    <div class="board-row">
+                        <button class="bet-btn bet-number red" data-bet="1">1</button>
+                        <button class="bet-btn bet-number black" data-bet="2">2</button>
+                        <button class="bet-btn bet-number red" data-bet="3">3</button>
+                    </div>
+                    <div class="board-row">
+                        <button class="bet-btn bet-number black" data-bet="4">4</button>
+                        <button class="bet-btn bet-number red" data-bet="5">5</button>
+                        <button class="bet-btn bet-number black" data-bet="6">6</button>
+                    </div>
+                    <!-- Дополнительные простые ставки -->
+                    <div class="board-row categories">
+                        <button class="bet-btn color-red" data-bet="red">Красное</button>
+                        <button class="bet-btn color-black" data-bet="black">Черное</button>
+                    </div>
+                </div>
+
+                <!-- Управление ставками -->
+                <div class="bet-controls">
+                    <div class="chip-selector">
+                        <button class="chip active" data-value="10">10</button>
+                        <button class="chip" data-value="50">50</button>
+                        <button class="chip" data-value="100">100</button>
+                    </div>
+                    <div class="current-bet-status">
+                        Ставка: <span id="current-bet-amount">0</span> ф. на [<span id="current-bet-target">-</span>]
+                    </div>
+                    <button id="spin-btn" class="btn-spin" disabled>Вращать!</button>
+                </div>
+            </main>
+
+            <footer class="game-footer">
+                <button id="shop-btn" class="btn-secondary">Пополнить баланс (Бесплатно)</button>
+                <button id="logout-btn" class="btn-secondary">Выйти</button>
+            </footer>
+        </div>
+    </div>
+
+    <script src="js/app.js"></script>
+</body>
+</html>
