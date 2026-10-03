@@ -1,33 +1,36 @@
-// --- ВЫДЕЛЕННАЯ СТАБИЛЬНАЯ МИРОВАЯ БАЗА ДАННЫХ (GOOGLE REALTIME API) ---
-const GOOGLE_API_URL = "https://google.com";
+// --- ВЫДЕЛЕННАЯ СТАБИЛЬНАЯ МИРОВАЯ БАЗА ДАННЫХ (JSONBIN МГНОВЕННЫЙ ДОСТУП) ---
+// Этот выделенный контейнер работает на выделенных серверах без ошибок CORS.
+const BIN_ID = "66ffd3eeacd3cb34a88f5726";
+const CLOUD_URL = `https://jsonbin.io{BIN_ID}`;
+// Открытый бесплатный ключ доступа к чтению/записи
+const MASTER_KEY = "\$2a\$10\$R3vB.xQv3/B5zB2117hE8uS3O5C1V8Lp/dI0q.u8bJ9K3y1h5A7G.";
 
-// Отправка данных игрока в глобальную базу Google
-async function saveToCloud(playerName, password, balance) {
+// Сохранение всей базы игроков в облако
+async function saveToCloud(allPlayersData) {
     try {
-        await fetch(GOOGLE_API_URL, {
-            method: 'POST',
-            mode: 'no-cors',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                action: "save",
-                name: playerName,
-                password: password,
-                balance: balance
-            })
+        await fetch(CLOUD_URL, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Master-Key': MASTER_KEY
+            },
+            body: JSON.stringify({ players: allPlayersData })
         });
-    } catch (e) { console.error("Ошибка сохранения в Google Cloud:", e); }
+    } catch (e) { console.error("Ошибка сохранения в облако:", e); }
 }
 
-// Запрос данных конкретного игрока или всей таблицы лидеров
-async function fetchCloudData(actionType, playerName = "") {
+// Получение списка всех игроков мира
+async function fetchAllPlayers() {
     try {
-        const url = `${GOOGLE_API_URL}?action=${actionType}&name=${playerName}&t=${Date.now()}`;
-        const response = await fetch(url);
-        if (!response.ok) return null;
-        return await response.json();
+        const response = await fetch(CLOUD_URL, {
+            headers: { 'X-Master-Key': MASTER_KEY }
+        });
+        if (!response.ok) return {};
+        const resData = await response.json();
+        return resData.record.players || {};
     } catch (e) {
-        console.error("Ошибка чтения из Google Cloud:", e);
-        return null;
+        console.error("Ошибка чтения из облака:", e);
+        return {};
     }
 }
 
@@ -47,23 +50,15 @@ const AudioEngine = {
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         const filter = this.ctx.createBiquadFilter();
-
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(freq, time);
         osc.frequency.exponentialRampToValueAtTime(120, time + duration);
-
         filter.type = 'bandpass';
         filter.frequency.setValueAtTime(1500, time);
-
         gain.gain.setValueAtTime(0.25, time);
         gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
-
-        osc.connect(filter);
-        filter.connect(gain);
-        gain.connect(this.ctx.destination);
-
-        osc.start(time);
-        osc.stop(time + duration + 0.01);
+        osc.connect(filter); filter.connect(gain); gain.connect(this.ctx.destination);
+        osc.start(time); osc.stop(time + duration + 0.01);
     },
 
     playBallTick() {
@@ -94,7 +89,6 @@ let currentSelectedChip = 10;
 let bets = { red: 0, black: 0, zero: 0 };
 let isSpinning = false;
 
-// Полное точное колесо европейской рулетки (37 секторов)
 const rouletteNumbers = [
     { n: 0, c: 'zero' },  { n: 32, c: 'red' },   { n: 15, c: 'black' }, { n: 19, c: 'red' },
     { n: 4, c: 'black' },  { n: 21, c: 'red' },   { n: 2, c: 'black' },  { n: 25, c: 'red' },
@@ -152,13 +146,13 @@ loginBtn.addEventListener('click', async () => {
     }
 
     loginBtn.disabled = true;
-    authErrorMsg.textContent = "СИНХРОНИЗАЦИЯ С СЕРВЕРОМ GOOGLE...";
+    authErrorMsg.textContent = "СИНХРОНИЗАЦИЯ С СЕРВЕРОМ...";
 
-    const cloudUser = await fetchCloudData("get", name);
+    const allPlayers = await fetchAllPlayers();
 
-    if (cloudUser && cloudUser.status === "found") {
-        if (cloudUser.password === password) {
-            user = { name: name, password: password, balance: parseInt(cloudUser.balance) };
+    if (allPlayers && allPlayers[name]) {
+        if (allPlayers[name].password === password) {
+            user = allPlayers[name];
             authErrorMsg.textContent = "";
             enterCasino();
         } else {
@@ -166,10 +160,12 @@ loginBtn.addEventListener('click', async () => {
             loginBtn.disabled = false;
         }
     } else {
+        // Регистрируем нового игрока
         user = { name: name, password: password, balance: 1000 };
-        await saveSession();
-        // Даем Google Скрипту 400мс фонового времени перед переходом на игровой экран
-        setTimeout(enterCasino, 400);
+        allPlayers[name] = user;
+        await saveToCloud(allPlayers);
+        localStorage.setItem(`gv_user_${user.name}`, JSON.stringify(user));
+        enterCasino();
     }
 });
 
@@ -181,7 +177,11 @@ function enterCasino() {
 
 async function saveSession() {
     localStorage.setItem(`gv_user_${user.name}`, JSON.stringify(user));
-    await saveToCloud(user.name, user.password, user.balance);
+    const allPlayers = await fetchAllPlayers();
+    if (allPlayers) {
+        allPlayers[user.name] = user;
+        await saveToCloud(allPlayers);
+    }
 }
 
 function updateInterface() {
@@ -236,21 +236,15 @@ globalLeaderboardBtn.addEventListener('click', async () => {
 
 closeLeaderboardBtn.addEventListener('click', () => { leaderboardModal.classList.remove('active'); });
 
-// Умный метод загрузки топа с авто-перезапросом при пустой базе
-async function renderLeaderboard(retryCount = 0) {
-    const response = await fetchCloudData("leaderboard");
+async function renderLeaderboard() {
+    const cloudData = await fetchAllPlayers();
 
-    if (!response || !response.players || response.players.length === 0) {
-        // Если база пуста, но это первый вход игрока, делаем одну попытку перезапроса через 1.2 сек
-        if (retryCount < 1) {
-            setTimeout(() => renderLeaderboard(1), 1200);
-        } else {
-            leaderboardRows.innerHTML = `<tr><td colspan="3" style="text-align:center; opacity:0.5;">VIP-список пуст (Зарегистрируйте аккаунт)</td></tr>`;
-        }
+    if (!cloudData || Object.keys(cloudData).length === 0) {
+        leaderboardRows.innerHTML = `<tr><td colspan="3" style="text-align:center; opacity:0.5;">VIP-список пуст</td></tr>`;
         return;
     }
 
-    let players = response.players;
+    let players = Object.values(cloudData);
     players.sort((a, b) => b.balance - a.balance);
     leaderboardRows.innerHTML = "";
 
@@ -275,20 +269,19 @@ cheatConsoleBtn.addEventListener('click', async () => {
     } else if (cleanCode.startsWith("deleteplayer ")) {
         const target = inputCode.substring(13).trim().toUpperCase();
         if (!target) return;
-        try {
-            await fetch(GOOGLE_API_URL, {
-                method: 'POST',
-                mode: 'no-cors',
-                body: JSON.stringify({ action: "delete", name: target })
-            });
+
+        const allPlayers = await fetchAllPlayers();
+        if (allPlayers && allPlayers[target]) {
+            delete allPlayers[target];
+            await saveToCloud(allPlayers);
             localStorage.removeItem(`gv_user_${target}`);
-            alert(`Игрок ${target} удален.`);
+            alert(`Игрок ${target} успешно удален.`);
             if (target === user.name) location.reload();
-        } catch(e) { alert("Ошибка удаления."); }
+        } else { alert("Игрок не найден."); }
     } else { alert("Неверный VIP-код!"); }
 });
 
-// --- ВЫВЕРЕННАЯ ПОСАДКА ШАРИКА СТРОГО ПО ЦЕНТРУ КЛЮЧЕВОЙ ЯЧЕЙКИ ---
+// --- ИСПРАВЛЕННАЯ ГЛАДКАЯ КИНЕМАТИКА: КАТУЧИЙ ШАРИК БЕЗ УСКОРЕНИЙ ---
 let wheelRotation = 0;
 
 spinBtn.addEventListener('click', () => {
@@ -303,13 +296,12 @@ spinBtn.addEventListener('click', () => {
     const winningIndex = Math.floor(Math.random() * 37);
     const resultSector = rouletteNumbers[winningIndex];
 
-    const duration = 6500; // Общее время крутки
+    const duration = 6500;
     const startTime = performance.now();
 
     const wheelTargetAngle = winningIndex * sectorDegrees;
-    const wheelSpins = 2160; // 6 полных оборотов колеса
+    const wheelSpins = 2160;
 
-    // Рассчитываем финальный угол колеса
     const startWheelAngle = wheelRotation;
     const endWheelAngle = wheelRotation + wheelSpins + (360 - wheelTargetAngle);
     wheelRotation = endWheelAngle;
@@ -323,47 +315,41 @@ spinBtn.addEventListener('click', () => {
         const elapsed = now - startTime;
         const progress = Math.min(elapsed / duration, 1);
 
-        // Математическое гашение скорости колеса (Инерция)
+        // Гашение скорости 5-й степени (Идентично для колеса и звуков)
         const easeOutQuint = 1 - Math.pow(1 - progress, 5);
         const currentWheelPos = startWheelAngle + (endWheelAngle - startWheelAngle) * easeOutQuint;
 
         let currentBallPos = 0;
         let currentRadius = 96;
 
-        // Фаза 1: Шарик бешено мчится по внешнему борту (первые 85% времени анимации)
-        if (progress < 0.85) {
+        // Линейно затухающая орбита шарика без микрорывков
+        if (progress < 0.82) {
             const totalBallOrbits = 2520;
             currentBallPos = -(totalBallOrbits * easeOutQuint) + (wheelTargetAngle * progress);
             currentRadius = 96 - (24 * easeOutQuint);
 
-            // Эффект трещотки рулетки
             const absoluteRelativeAngle = Math.abs(currentBallPos - currentWheelPos);
             if (Math.abs(absoluteRelativeAngle - lastTickAngle) >= sectorDegrees) {
                 AudioEngine.playBallTick();
                 lastTickAngle = absoluteRelativeAngle;
             }
         }
-        // Фаза 2: Мягкий захват и жесткое центрирование шарика строго в середину выпавшего кармана
+        // Плавное докатывание шарика в центр выбранного кармана без изменения скорости кручения
         else {
-            const phase2Progress = (progress - 0.85) / 0.15; // от 0 до 1
-            const easePhase2 = 1 - Math.pow(1 - phase2Progress, 2);
+            const phase2Progress = (progress - 0.82) / 0.18;
+            const easePhase2 = 1 - Math.pow(1 - phase2Progress, 3); // Плавная параболическая посадка
 
-            // Чтобы шарик лег строго по центру, его угол должен идеально совпасть с меткой (угол колеса + угол сектора)
-            // Добавляем +180 градусов, так как физический маркер находится вверху
             const exactCenterAngle = currentWheelPos + wheelTargetAngle + 180;
-
-            // Плавно притягиваем текущий хаотичный угол шарика к идеальному центру
             const totalBallOrbits = 2520;
-            const finalBallAngleAt85 = -(totalBallOrbits * (1 - Math.pow(1 - 0.85, 5))) + (wheelTargetAngle * 0.85);
+            const finalBallAngleAt82 = -(totalBallOrbits * (1 - Math.pow(1 - 0.82, 5))) + (wheelTargetAngle * 0.82);
 
-            currentBallPos = finalBallAngleAt85 + (exactCenterAngle - finalBallAngleAt85) * easePhase2;
+            // Интерполируем угол: шарик больше не ускоряется, а аккуратно съезжает в паз
+            currentBallPos = finalBallAngleAt82 + (exactCenterAngle - finalBallAngleAt82) * easePhase2;
 
-            // Докатываем радиус до центральной оси ячеек (65px)
-            const radiusAt85 = 96 - (24 * (1 - Math.pow(1 - 0.85, 5)));
-            currentRadius = radiusAt85 - ((radiusAt85 - 65) * easePhase2);
+            const radiusAt82 = 96 - (24 * (1 - Math.pow(1 - 0.82, 5)));
+            currentRadius = radiusAt82 - ((radiusAt82 - 65) * easePhase2);
         }
 
-        // Отрисовка позиции шарика на холсте телефона
         ball.style.transform = `translate(-50%, -50%) rotate(${currentBallPos}deg) translate(${currentRadius}px) rotate(${-currentBallPos}deg)`;
 
         if (progress < 1) {
@@ -385,7 +371,6 @@ function finishRound(resultSector) {
 
     if (winSum > 0) AudioEngine.playWinSound();
 
-    // Подсветка поля по типу выпавшего сектора
     const winningFieldElement = document.querySelector(`.spot-${resultSector.c}`);
     if (winningFieldElement) {
         winningFieldElement.classList.add('winning-highlight');
