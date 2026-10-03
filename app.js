@@ -38,7 +38,6 @@ let user = { name: "", password: "", balance: 1000 };
 let currentSelectedChip = 10;
 let isSpinning = false;
 
-// Хранилище ставок (Сюда автоматически запишутся red, black, и все 37 чисел)
 let bets = { red: 0, black: 0 };
 for(let i = 0; i <= 36; i++) { bets[`num_${i}`] = 0; }
 
@@ -55,25 +54,6 @@ const rouletteNumbers = [
     { n: 26, c: 'black' }
 ];
 const sectorDegrees = 360 / 37;
-
-// Автоматическая генерация 36 числовых кнопок на сукне
-function generateFeltGrid() {
-    const grid = document.getElementById('numbers-grid');
-    if (!grid) return;
-    grid.innerHTML = "";
-
-    for (let i = 1; i <= 36; i++) {
-        // Определяем цвет числа по колесу
-        const sec = rouletteNumbers.find(box => box.n === i);
-        const colClass = sec.c === 'red' ? 'bg-red' : 'bg-black';
-
-        const spot = document.createElement('div');
-        spot.className = `bet-spot spot-number ${colClass} num-${i}`;
-        spot.setAttribute('data-target', `num_${i}`);
-        spot.innerHTML = `<span class="spot-title">${i}</span><div id="chip-space-num_${i}" class="chip-holder hidden"></div>`;
-        grid.appendChild(spot);
-    }
-}
 const authScreen = document.getElementById('auth-screen');
 const gameScreen = document.getElementById('game-screen');
 const usernameInput = document.getElementById('username-input');
@@ -93,6 +73,47 @@ const leaderboardModal = document.getElementById('leaderboard-modal');
 const closeLeaderboardBtn = document.getElementById('close-leaderboard-btn');
 const leaderboardRows = document.getElementById('leaderboard-rows');
 
+// Отрисовка цифр на секторах рулетки
+function drawWheelSectorsSVG() {
+    let gradientParts = [];
+    let svgContent = `<svg width="100%" height="100%" viewBox="0 0 200 200" style="position:absolute; top:0; left:0; z-index:2;">`;
+
+    rouletteNumbers.forEach((sector, index) => {
+        let startDeg = index * sectorDegrees;
+        let endDeg = (index + 1) * sectorDegrees;
+        let color = sector.c === 'zero' ? '#116936' : (sector.c === 'red' ? '#bd1c1c' : '#1a1a1a');
+        gradientParts.push(`${color} ${startDeg}deg ${endDeg}deg`);
+
+        // Считаем угол для текста в центре каждого кармана
+        let textAngle = startDeg + (sectorDegrees / 2);
+        let rad = (textAngle - 90) * Math.PI / 180;
+        let tx = 100 + 78 * Math.cos(rad);
+        let ty = 100 + 78 * Math.sin(rad);
+
+        svgContent += `<text x="${tx}" y="${ty}" fill="#ffd700" font-size="7.5" font-weight="800" text-anchor="middle" dominant-baseline="central" transform="rotate(${textAngle}, ${tx}, ${ty})">${sector.n}</text>`;
+    });
+
+    svgContent += `</svg><div class="wheel-hub"></div>`;
+    wheel.innerHTML = svgContent;
+    wheel.style.background = `conic-gradient(${gradientParts.join(', ')})`;
+}
+
+function generateFeltGrid() {
+    const grid = document.getElementById('numbers-grid');
+    if (!grid) return;
+    grid.innerHTML = "";
+    for (let i = 1; i <= 36; i++) {
+        const sec = rouletteNumbers.find(box => box.n === i);
+        const colClass = sec.c === 'red' ? 'bg-red' : 'bg-black';
+        const spot = document.createElement('div');
+        spot.className = `bet-spot spot-number ${colClass} num-${i}`;
+        spot.setAttribute('data-target', `num_${i}`);
+        spot.innerHTML = `<span class="spot-title">${i}</span><div id="chip-space-num_${i}" class="chip-holder hidden"></div>`;
+        grid.appendChild(spot);
+    }
+}
+
+drawWheelSectorsSVG();
 generateFeltGrid();
 
 loginBtn.addEventListener('click', () => {
@@ -103,7 +124,6 @@ loginBtn.addEventListener('click', () => {
 
     const storageKey = 'grand_velvet_local_' + name;
     const saved = localStorage.getItem(storageKey);
-
     if (saved) {
         const parsed = JSON.parse(saved);
         if (parsed.password === password) { user = parsed; enterCasino(); }
@@ -114,20 +134,10 @@ loginBtn.addEventListener('click', () => {
     }
 });
 
-function enterCasino() {
-    updateInterface();
-    authScreen.classList.remove('active');
-    setTimeout(() => {
-        gameScreen.classList.add('active');
-        setupBetSpotListeners(); // Активируем клики по созданным полям
-    }, 400);
-}
+function enterCasino() { updateInterface(); authScreen.classList.remove('active'); setTimeout(() => { gameScreen.classList.add('active'); setupBetSpotListeners(); }, 400); }
 function saveSession() { localStorage.setItem('grand_velvet_local_' + user.name, JSON.stringify(user)); }
-
 function updateInterface() {
-    userNameDisplay.textContent = user.name;
-    userBalanceDisplay.textContent = user.balance.toLocaleString();
-
+    userNameDisplay.textContent = user.name; userBalanceDisplay.textContent = user.balance.toLocaleString();
     Object.keys(bets).forEach(key => {
         const holder = document.getElementById('chip-space-' + key);
         if (holder) {
@@ -147,11 +157,6 @@ document.querySelectorAll('.casino-chip').forEach(chip => {
 
 function setupBetSpotListeners() {
     document.querySelectorAll('.bet-spot').forEach(spot => {
-        // Убираем старый слушатель, чтобы не плодить дубликаты при перезапусках
-        spot.replaceWith(spot.cloneNode(true));
-    });
-
-    document.querySelectorAll('.bet-spot').forEach(spot => {
         spot.addEventListener('click', () => {
             if (isSpinning) return;
             const target = spot.getAttribute('data-target');
@@ -161,11 +166,13 @@ function setupBetSpotListeners() {
         });
     });
 }
+
 clearBtn.addEventListener('click', () => {
     if (isSpinning) return; AudioEngine.playChipSound();
     Object.keys(bets).forEach(key => { user.balance += bets[key]; bets[key] = 0; });
     updateInterface(); statusMessage.textContent = "СТАВКИ СБРОШЕНЫ";
 });
+
 globalLeaderboardBtn.addEventListener('click', () => { AudioEngine.init(); leaderboardModal.classList.add('active'); renderLeaderboard(); });
 closeLeaderboardBtn.addEventListener('click', () => { leaderboardModal.classList.remove('active'); });
 
@@ -182,6 +189,7 @@ function renderLeaderboard() {
         const row = document.createElement('tr'); row.innerHTML = '<td>#' + (idx + 1) + '</td><td>' + p.name + (p.name === user.name ? ' <span style="color:#22c55e">(Вы)</span>' : '') + '</td><td>' + parseInt(p.balance).toLocaleString() + ' \$</td>'; leaderboardRows.appendChild(row);
     });
 }
+
 cheatConsoleBtn.addEventListener('click', () => {
     if (isSpinning) return; const inputCode = prompt("ВВЕДИТЕ СЕКРЕТНЫЙ VIP-КОД:"); if (!inputCode) return; const cleanCode = inputCode.trim().toLowerCase();
     if (cleanCode === "cashin") { user.balance += 5000; saveSession(); updateInterface(); alert("Зачислено +5,000 \$"); }
@@ -219,15 +227,12 @@ spinBtn.addEventListener('click', () => {
 
 function finishRound(resultSector) {
     let winSum = 0;
-    // 1. Считаем выигрыш по ставкам на цвета
     if (bets[resultSector.c] > 0) winSum += bets[resultSector.c] * 2;
-    // 2. Считаем выигрыш по ставке на конкретное точное число (Множитель 36х)
     if (bets[`num_${resultSector.n}`] > 0) winSum += bets[`num_${resultSector.n}`] * 36;
 
     user.balance += winSum; saveSession();
     if (winSum > 0) AudioEngine.playWinSound();
 
-    // ВЫДЕЛЕНИЕ (ПОДСВЕТКА) ПОЛЯ ЦВЕТА И КОНКРЕТНОЙ ЯЧЕЙКИ ВЫПАВШЕГО ЧИСЛА НА СУКНЕ
     const colorField = document.querySelector(`.spot-${resultSector.c}`);
     if (colorField) colorField.classList.add('winning-highlight');
 

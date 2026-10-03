@@ -9,7 +9,7 @@
 </head>
 <body>
 
-    <!-- ЭКРАН РЕГИСТРАЦИИ / ВХОДА -->
+    <!-- ЭКРАН РЕГИСТРАЦИИ -->
     <div id="auth-screen" class="screen active">
         <div class="auth-container">
             <div class="casino-brand">
@@ -17,21 +17,17 @@
                 <div class="brand-badge">VELVET</div>
                 <p class="brand-subtitle">EXCLUSIVE LOUNGE</p>
             </div>
-
             <div class="auth-box">
-                <h2 id="auth-title">Вход / Регистрация</h2>
-                <p class="auth-notice">Локальная VIP-память. Придумайте никнейм и пароль. Игра сохраняет прогресс прямо на этом устройстве.</p>
-
+                <h2>Вход / Регистрация</h2>
+                <p class="auth-notice">Локальная VIP-память устройства.</p>
                 <div class="input-field">
                     <input type="text" id="username-input" placeholder="Никнейм..." maxlength="14" autocomplete="off">
                     <span class="glow-line"></span>
                 </div>
-
                 <div class="input-field">
                     <input type="password" id="password-input" placeholder="Пароль..." autocomplete="off">
                     <span class="glow-line"></span>
                 </div>
-
                 <button id="login-btn" class="btn-premium">Войти в клуб</button>
                 <div id="auth-error-msg" class="auth-error"></div>
             </div>
@@ -40,84 +36,69 @@
 
     <!-- ГЛАВНЫЙ ИГРОВОЙ ЭКРАН -->
     <div id="game-screen" class="screen">
-        <!-- Верхний статус-бар -->
         <header class="top-bar">
             <div class="player-tag">
-                <div class="player-meta">
-                    <span class="vip-status">VIP</span>
-                    <span id="user-name" class="name">GUEST</span>
-                </div>
+                <div class="player-meta"><span class="vip-status">VIP</span><span id="user-name" class="name">GUEST</span></div>
                 <button id="global-leaderboard-btn" class="leaderboard-trigger-btn">🏆 ТОП ИГРОКОВ</button>
             </div>
             <div class="wallet">
                 <span class="wallet-label">ДЕПОЗИТ</span>
-                <div class="wallet-amount">
-                    <span id="user-balance">1,000</span>
-                    <span class="currency-sign">$</span>
-                </div>
+                <div class="wallet-amount"><span id="user-balance">1,000</span><span class="currency-sign">$</span></div>
             </div>
         </header>
 
-        <!-- Игровая сцена -->
+        <!-- Новая двухблочная сцена -->
         <main class="table-scene">
-            <div class="roulette-section">
-                <div class="roulette-wheel-container">
-                    <div class="wheel-pointer"></div>
-                    <div class="wheel-outer-rim">
-                        <div id="wheel" class="wheel-spindle">
-                            <div class="wheel-hub"></div>
+
+            <!-- ЛЕВАЯ СЕКЦИЯ: КОЛЕСО И ТАБЛО -->
+            <div class="left-wing">
+                <div class="roulette-section">
+                    <div class="roulette-wheel-container">
+                        <div class="wheel-pointer"></div>
+                        <div class="wheel-outer-rim">
+                            <div id="wheel" class="wheel-spindle">
+                                <!-- Сюда JS вставит SVG с цифрами секторов -->
+                            </div>
+                        </div>
+                        <div id="roulette-ball" class="roulette-ball hidden"></div>
+                    </div>
+                </div>
+                <div class="display-board">
+                    <div id="status-message" class="ticker-message">СДЕЛАЙТЕ ВАШИ СТАВКИ</div>
+                </div>
+            </div>
+
+            <!-- ПРАВАЯ СЕКЦИЯ: СУКНО И КНОПКИ УПРАВЛЕНИЯ -->
+            <div class="right-wing">
+                <div class="betting-felt">
+                    <div class="zero-box">
+                        <div class="bet-spot spot-zero num-0" data-target="num_0">
+                            <span class="spot-title">0</span>
+                            <div id="chip-space-num_0" class="chip-holder hidden"></div>
                         </div>
                     </div>
-                    <div id="roulette-ball" class="roulette-ball hidden"></div>
-                </div>
-            </div>
-
-            <div class="display-board">
-                <div id="status-message" class="ticker-message">СДЕЛАЙТЕ ВАШИ СТАВКИ</div>
-            </div>
-
-            <!-- Новое полноценное игровое сукно: Зеро + Сетка чисел + Цветные поля -->
-            <div class="betting-felt">
-                <!-- Сектор Зеро -->
-                <div class="zero-box">
-                    <div class="bet-spot spot-number num-0" data-target="num_0" data-color="zero">
-                        <span class="spot-title">0</span>
-                        <div id="chip-space-num_0" class="chip-holder hidden"></div>
+                    <div id="numbers-grid" class="numbers-grid"></div>
+                    <div class="color-spots-row">
+                        <div class="bet-spot spot-red" data-target="red"><span class="spot-title">RED</span><div id="chip-space-red" class="chip-holder hidden"></div></div>
+                        <div class="bet-spot spot-black" data-target="black"><span class="spot-title">BLACK</span><div id="chip-space-black" class="chip-holder hidden"></div></div>
                     </div>
                 </div>
 
-                <!-- Основная сетка чисел от 1 до 36 -->
-                <div id="numbers-grid" class="numbers-grid">
-                    <!-- Числа будут генерироваться кодом автоматически -->
-                </div>
-
-                <!-- Нижние поля ставок на цвета -->
-                <div class="color-spots-row">
-                    <div class="bet-spot spot-red" data-target="red">
-                        <span class="spot-title">RED</span>
-                        <div id="chip-space-red" class="chip-holder hidden"></div>
+                <div class="dealer-panel">
+                    <div class="chips-tray">
+                        <div class="casino-chip chip-cyan active" data-value="10">10</div>
+                        <div class="casino-chip chip-magenta" data-value="50">50</div>
+                        <div class="casino-chip chip-gold" data-value="100">100</div>
+                        <div class="casino-chip chip-purple" data-value="500">500</div>
                     </div>
-                    <div class="bet-spot spot-black" data-target="black">
-                        <span class="spot-title">BLACK</span>
-                        <div id="chip-space-black" class="chip-holder hidden"></div>
+                    <div class="action-grid">
+                        <button id="clear-btn" class="action-btn btn-secondary">Сбросить</button>
+                        <button id="spin-btn" class="action-btn btn-action-spin">ЗАПУСК</button>
+                        <button id="cheat-console-btn" class="action-btn btn-secondary">📜 КОДЫ</button>
                     </div>
                 </div>
             </div>
 
-            <div class="dealer-panel">
-                <div class="chips-tray">
-                    <div class="casino-chip chip-cyan active" data-value="10">10</div>
-                    <div class="casino-chip chip-magenta" data-value="50">50</div>
-                    <div class="casino-chip chip-gold" data-value="100">100</div>
-                    <div class="casino-chip chip-purple" data-value="500">500</div>
-                </div>
-
-                <div class="action-grid">
-                    <button id="clear-btn" class="action-btn btn-secondary">Сбросить</button>
-                    <button id="spin-btn" class="action-btn btn-action-spin">ЗАПУСК</button>
-                    <button id="cheat-console-btn" class="action-btn btn-secondary">📜 КОДЫ</button>
-                </div>
-            </div>
         </main>
     </div>
 
@@ -130,13 +111,7 @@
             </div>
             <div class="modal-body">
                 <table class="leaderboard-table">
-                    <thead>
-                        <tr>
-                            <th>Ранг</th>
-                            <th>Игрок</th>
-                            <th>Баланс</th>
-                        </tr>
-                    </thead>
+                    <thead><tr><th>Ранг</th><th>Игрок</th><th>Баланс</th></tr></thead>
                     <tbody id="leaderboard-rows"></tbody>
                 </table>
             </div>
