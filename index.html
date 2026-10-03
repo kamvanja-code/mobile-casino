@@ -76,23 +76,31 @@
                 <div id="status-message" class="ticker-message">СДЕЛАЙТЕ ВАШИ СТАВКИ</div>
             </div>
 
+            <!-- Новое полноценное игровое сукно: Зеро + Сетка чисел + Цветные поля -->
             <div class="betting-felt">
-                <div class="bet-spot spot-red" data-target="red">
-                    <span class="spot-title">RED</span>
-                    <span class="spot-odds">1 TO 1</span>
-                    <div id="chip-space-red" class="chip-holder hidden"></div>
+                <!-- Сектор Зеро -->
+                <div class="zero-box">
+                    <div class="bet-spot spot-number num-0" data-target="num_0" data-color="zero">
+                        <span class="spot-title">0</span>
+                        <div id="chip-space-num_0" class="chip-holder hidden"></div>
+                    </div>
                 </div>
 
-                <div class="bet-spot spot-zero" data-target="zero">
-                    <span class="spot-title">0</span>
-                    <span class="spot-odds">35 TO 1</span>
-                    <div id="chip-space-zero" class="chip-holder hidden"></div>
+                <!-- Основная сетка чисел от 1 до 36 -->
+                <div id="numbers-grid" class="numbers-grid">
+                    <!-- Числа будут генерироваться кодом автоматически -->
                 </div>
 
-                <div class="bet-spot spot-black" data-target="black">
-                    <span class="spot-title">BLACK</span>
-                    <span class="spot-odds">1 TO 1</span>
-                    <div id="chip-space-black" class="chip-holder hidden"></div>
+                <!-- Нижние поля ставок на цвета -->
+                <div class="color-spots-row">
+                    <div class="bet-spot spot-red" data-target="red">
+                        <span class="spot-title">RED</span>
+                        <div id="chip-space-red" class="chip-holder hidden"></div>
+                    </div>
+                    <div class="bet-spot spot-black" data-target="black">
+                        <span class="spot-title">BLACK</span>
+                        <div id="chip-space-black" class="chip-holder hidden"></div>
+                    </div>
                 </div>
             </div>
 
