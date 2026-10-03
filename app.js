@@ -1,37 +1,9 @@
-// --- ВЫДЕЛЕННАЯ СТАБИЛЬНАЯ МИРОВАЯ БАЗА ДАННЫХ ДЛЯ КАЗИНО (БЕЗ ОШИБОК СЕТИ) ---
-// Этот выделенный облачный контейнер объединяет балансы и пароли всех ваших игроков в реальном времени.
-const CLOUD_BIN_ID = "0ba967406a457497d397";
-const CLOUD_URL = `https://npoint.io{CLOUD_BIN_ID}`;
-
-// Запись всей базы игроков в облако
-async function saveToCloud(allPlayersData) {
-    try {
-        await fetch(CLOUD_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(allPlayersData)
-        });
-    } catch (e) { console.error("Ошибка сохранения в облако:", e); }
-}
-
-// Получение списка всех игроков мира
-async function fetchAllPlayers() {
-    try {
-        const response = await fetch(CLOUD_URL);
-        if (!response.ok) return {};
-        const data = await response.json();
-        return data || {};
-    } catch (e) {
-        console.error("Ошибка чтения из облака:", e);
-        return {};
-    }
-}
-
 // --- КРИСТАЛЬНО ЧИСТЫЙ ЗВУКОВОЙ ДВИЖОК КАЗИНО ---
 const AudioEngine = {
     ctx: null,
     init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); },
 
+    // Реалистичный глухой звук соударения тяжелых глиняных фишек
     playChipSound() {
         this.init();
         const now = this.ctx.currentTime;
@@ -51,6 +23,7 @@ const AudioEngine = {
         osc.start(time); osc.stop(time + duration + 0.01);
     },
 
+    // Стук шарика о ячейку рулетки
     playBallTick() {
         this.init(); const now = this.ctx.currentTime;
         const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
@@ -61,6 +34,7 @@ const AudioEngine = {
         osc.start(now); osc.stop(now + 0.02);
     },
 
+    // Победный аккорд казино при выигрыше
     playWinSound() {
         this.init(); const now = this.ctx.currentTime;
         const freqs = [329.63, 392.00, 523.25, 659.25];
@@ -74,11 +48,13 @@ const AudioEngine = {
     }
 };
 
+// Глобальное состояние игры
 let user = { name: "", password: "", balance: 1000 };
 let currentSelectedChip = 10;
 let bets = { red: 0, black: 0, zero: 0 };
 let isSpinning = false;
 
+// 37 секторов европейской рулетки (Строгое чередование по часовой стрелке)
 const rouletteNumbers = [
     { n: 0, c: 'zero' },  { n: 32, c: 'red' },   { n: 15, c: 'black' }, { n: 19, c: 'red' },
     { n: 4, c: 'black' },  { n: 21, c: 'red' },   { n: 2, c: 'black' },  { n: 25, c: 'red' },
@@ -125,8 +101,8 @@ function renderWheelSectors() {
 }
 renderWheelSectors();
 
-// Мировая авторизация без ошибок сети
-loginBtn.addEventListener('click', async () => {
+// Настоящая безотказная локальная авторизация
+loginBtn.addEventListener('click', () => {
     AudioEngine.init();
     const name = usernameInput.value.trim().toUpperCase().replace(/[^A-Z0-9_]/g, "");
     const password = passwordInput.value.trim();
@@ -136,25 +112,22 @@ loginBtn.addEventListener('click', async () => {
         return;
     }
 
-    loginBtn.disabled = true;
-    authErrorMsg.textContent = "ПОДКЛЮЧЕНИЕ К СЕРВЕРУ КАЗИНО...";
+    const localKey = `grand_velvet_user_${name}`;
+    const savedUser = localStorage.getItem(localKey);
 
-    const allPlayers = await fetchAllPlayers();
-
-    if (allPlayers && allPlayers[name]) {
-        if (allPlayers[name].password === password) {
-            user = allPlayers[name];
+    if (savedUser) {
+        const parsedUser = JSON.parse(savedUser);
+        if (parsedUser.password === password) {
+            user = parsedUser;
             authErrorMsg.textContent = "";
             enterCasino();
         } else {
-            authErrorMsg.textContent = "НЕВЕРНЫЙ ПАРОЛЬ ДЛЯ ЭТОГО VIP-НИКА";
-            loginBtn.disabled = false;
+            authErrorMsg.textContent = "НЕВЕРНЫЙ ПАРОЛЬ";
         }
     } else {
-        // Если ник свободен — регистрируем в мировом облаке
         user = { name: name, password: password, balance: 1000 };
-        allPlayers[name] = user;
-        await saveToCloud(allPlayers);
+        saveSession();
+        authErrorMsg.textContent = "";
         enterCasino();
     }
 });
@@ -165,13 +138,8 @@ function enterCasino() {
     setTimeout(() => gameScreen.classList.add('active'), 400);
 }
 
-async function saveSession() {
-    localStorage.setItem(`gv_user_${user.name}`, JSON.stringify(user));
-    const allPlayers = await fetchAllPlayers();
-    if (allPlayers) {
-        allPlayers[user.name] = user;
-        await saveToCloud(allPlayers);
-    }
+function saveSession() {
+    localStorage.setItem(`grand_velvet_user_${user.name}`, JSON.stringify(user));
 }
 
 function updateInterface() {
@@ -217,62 +185,57 @@ clearBtn.addEventListener('click', () => {
     statusMessage.textContent = "СТАВКИ СБРОШЕНЫ";
 });
 
-// Глобальный лидерборд со всех девайсов мира
-globalLeaderboardBtn.addEventListener('click', async () => {
+// Мгновенный безотказный рендеринг таблицы лидеров
+globalLeaderboardBtn.addEventListener('click', () => {
     AudioEngine.init();
     leaderboardModal.classList.add('active');
-    leaderboardRows.innerHTML = `<tr><td colspan="3" style="text-align:center; opacity:0.5;">СКАЧИВАНИЕ МИРОВОГО ТОПА...</td></tr>`;
-    await renderLeaderboard();
+    renderLeaderboard();
 });
 
 closeLeaderboardBtn.addEventListener('click', () => { leaderboardModal.classList.remove('active'); });
 
-async function renderLeaderboard() {
-    const cloudData = await fetchAllPlayers();
-
-    if (!cloudData || Object.keys(cloudData).length === 0) {
-        leaderboardRows.innerHTML = `<tr><td colspan="3" style="text-align:center; opacity:0.5;">VIP-список пуст</td></tr>`;
-        return;
+function renderLeaderboard() {
+    let players = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key.startsWith("grand_velvet_user_")) {
+            try { players.push(JSON.parse(localStorage.getItem(key))); } catch(e) {}
+        }
     }
-
-    let players = Object.values(cloudData);
     players.sort((a, b) => b.balance - a.balance);
     leaderboardRows.innerHTML = "";
 
     players.forEach((p, idx) => {
         const row = document.createElement('tr');
-        row.innerHTML = `<td>#${idx + 1}</td><td>${p.name} ${p.name === user.name ? '<span style="color:#22c55e">(Вы)</span>' : ''}</td><td>${parseInt(p.balance).toLocaleString()} $</td>`;
+        row.innerHTML = `<td>#${idx + 1}</td><td>${p.name} ${p.name === user.name ? '<span style="color:#22c55e">(Вы)</span>' : ''}</td><td>${p.balance.toLocaleString()} $</td>`;
         leaderboardRows.appendChild(row);
     });
 }
-cheatConsoleBtn.addEventListener('click', async () => {
+cheatConsoleBtn.addEventListener('click', () => {
     if (isSpinning) return;
     const inputCode = prompt("ВВЕДИТЕ СЕКРЕТНЫЙ VIP-КОД:");
     if (!inputCode) return;
     const cleanCode = inputCode.trim().toLowerCase();
 
     if (cleanCode === "cashin") {
-        user.balance += 5000; await saveSession(); updateInterface();
+        user.balance += 5000; saveSession(); updateInterface();
         alert("Код активирован! Зачислено +5,000 \$");
     } else if (cleanCode === "cashout") {
-        user.balance = Math.max(0, user.balance - 500); await saveSession(); updateInterface();
+        user.balance = Math.max(0, user.balance - 500); saveSession(); updateInterface();
         alert("Код активирован! Списано -500 \$");
     } else if (cleanCode.startsWith("deleteplayer ")) {
         const target = inputCode.substring(13).trim().toUpperCase();
         if (!target) return;
-
-        const allPlayers = await fetchAllPlayers();
-        if (allPlayers && allPlayers[target]) {
-            delete allPlayers[target];
-            await saveToCloud(allPlayers);
-            localStorage.removeItem(`gv_user_${target}`);
-            alert(`Игрок ${target} успешно удален.`);
+        const localKey = `grand_velvet_user_${target}`;
+        if (localStorage.getItem(localKey)) {
+            localStorage.removeItem(localKey);
+            alert(`Игрок ${target} полностью удален.`);
             if (target === user.name) location.reload();
         } else { alert("Игрок не найден."); }
     } else { alert("Неверный VIP-код!"); }
 });
 
-// --- СИНХРОННОЕ КИНЕМАТИЧЕСКОЕ ЗАТУХАНИЕ ШАРИКА С ПОСАДКОЙ В ЦЕНТР ---
+// --- ИДЕАЛЬНОЕ ГЛАДКОЕ ЭКСПОНЕНЦИАЛЬНОЕ ДВИЖЕНИЕ ШАРИКА ---
 let wheelRotation = 0;
 
 spinBtn.addEventListener('click', () => {
@@ -291,7 +254,7 @@ spinBtn.addEventListener('click', () => {
     const startTime = performance.now();
 
     const wheelTargetAngle = winningIndex * sectorDegrees;
-    const wheelSpins = 2160;
+    const wheelSpins = 2160; // 6 полных кругов рулетки
 
     const startWheelAngle = wheelRotation;
     const endWheelAngle = wheelRotation + wheelSpins + (360 - wheelTargetAngle);
@@ -306,41 +269,32 @@ spinBtn.addEventListener('click', () => {
         const elapsed = now - startTime;
         const progress = Math.min(elapsed / duration, 1);
 
-        // Математическое гашение скорости 5-й степени
+        // Главная функция затухания скорости 5-й степени (Инерция)
         const easeOutQuint = 1 - Math.pow(1 - progress, 5);
+
+        // Текущий абсолютный поворот колеса рулетки
         const currentWheelPos = startWheelAngle + (endWheelAngle - startWheelAngle) * easeOutQuint;
 
-        let currentBallPos = 0;
-        let currentRadius = 96;
+        // Физически выверенное относительное вращение.
+        // Шарик жестко привязан к сектору, но имеет свою дополнительную инерцию прокрутки вперед,
+        // которая тает по идеальной экспоненте. Микроускорения в конце исключены математически.
+        const ballExtraOrbits = 1440; // 4 круга фонового обгона колеса шариком
+        const ballProgressAngle = ballExtraOrbits * (1 - Math.pow(1 - progress, 3.5));
 
-        // Фаза 1: Шарик катится по внешнему кольцу (до 82% времени крутки)
-        if (progress < 0.82) {
-            const totalBallOrbits = 2520;
-            currentBallPos = -(totalBallOrbits * easeOutQuint) + (wheelTargetAngle * progress);
-            currentRadius = 96 - (24 * easeOutQuint);
+        // Итоговый угол шарика садится идеально в ячейку (Колесо + Сектор + Смещение маркера 180)
+        const currentBallPos = ((currentWheelPos % 360) + wheelTargetAngle + 180) - (ballExtraOrbits - ballProgressAngle);
 
-            const absoluteRelativeAngle = Math.abs(currentBallPos - currentWheelPos);
-            if (Math.abs(absoluteRelativeAngle - lastTickAngle) >= sectorDegrees) {
-                AudioEngine.playBallTick();
-                lastTickAngle = absoluteRelativeAngle;
-            }
-        }
-        // Фаза 2: Мягкое опускание без изменения скорости вращения колеса рулетки
-        else {
-            const phase2Progress = (progress - 0.82) / 0.18;
-            const easePhase2 = 1 - Math.pow(1 - phase2Progress, 3);
-
-            const exactCenterAngle = (currentWheelPos % 360) + wheelTargetAngle + 180;
-            const totalBallOrbits = 2520;
-            const finalBallAngleAt82 = -(totalBallOrbits * (1 - Math.pow(1 - 0.82, 5))) + (wheelTargetAngle * 0.82);
-
-            currentBallPos = finalBallAngleAt82 + (exactCenterAngle - finalBallAngleAt82) * easePhase2;
-
-            const radiusAt82 = 96 - (24 * (1 - Math.pow(1 - 0.82, 5)));
-            currentRadius = radiusAt82 - ((radiusAt82 - 65) * easePhase2);
-        }
+        // Плавное сужение радиуса орбиты шарика: от 96px (верхний бортик) до глубоких 65px (центр кармана числа)
+        const currentRadius = 96 - (31 * easeOutQuint);
 
         ball.style.transform = `translate(-50%, -50%) rotate(${currentBallPos}deg) translate(${currentRadius}px) rotate(${-currentBallPos}deg)`;
+
+        // Звуковая трещотка
+        const absoluteRelativeAngle = Math.abs(currentBallPos - currentWheelPos);
+        if (Math.abs(absoluteRelativeAngle - lastTickAngle) >= sectorDegrees) {
+            if (progress < 0.83) AudioEngine.playBallTick();
+            lastTickAngle = absoluteRelativeAngle;
+        }
 
         if (progress < 1) {
             requestAnimationFrame(animateSimulation);
@@ -351,13 +305,13 @@ spinBtn.addEventListener('click', () => {
     requestAnimationFrame(animateSimulation);
 });
 
-async function finishRound(resultSector) {
+function finishRound(resultSector) {
     let winSum = 0;
     if (bets[resultSector.c] > 0 && (resultSector.c === 'red' || resultSector.c === 'black')) winSum += bets[resultSector.c] * 2;
     if (resultSector.c === 'zero' && bets.zero > 0) winSum += bets.zero * 36;
 
     user.balance += winSum;
-    await saveSession();
+    saveSession();
 
     if (winSum > 0) AudioEngine.playWinSound();
 
