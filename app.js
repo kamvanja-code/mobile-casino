@@ -1,73 +1,67 @@
-// --- КОНФИГУРАЦИЯ СТАБИЛЬНОГО МИРОВОГО ОБЛАКА (KVDB.IO) ---
-// Генерируем уникальный постоянный ключ для базы данных казино
-const BUCKET_ID = "kvd_grandvelvet_casino_prod_v2";
-const CLOUD_URL = `https://kvdb.io{BUCKET_ID}`;
+// --- ВЫДЕЛЕННАЯ ОБЛАЧНАЯ БАЗА ДАННЫХ GOOGLE FIREBASE ---
+const FIREBASE_URL = "https://firebaseio.com";
 
 async function saveToCloud(playerName, playerData) {
     try {
-        await fetch(`${CLOUD_URL}/${playerName}`, {
-            method: 'POST',
+        await fetch(`${FIREBASE_URL}/${playerName}.json`, {
+            method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(playerData)
         });
-    } catch (e) { console.error("Ошибка сохранения в облако:", e); }
+    } catch (e) { console.error("Ошибка сохранения в Firebase:", e); }
 }
 
 async function getFromCloud(playerName) {
     try {
-        const response = await fetch(`${CLOUD_URL}/${playerName}`);
+        const response = await fetch(`${FIREBASE_URL}/${playerName}.json`);
         if (!response.ok) return null;
         return await response.json();
-    } catch (e) { console.error("Ошибка чтения из облака:", e); return null; }
+    } catch (e) { console.error("Ошибка чтения из Firebase:", e); return null; }
 }
 
-// --- УЛУЧШЕННЫЙ ЗВУКОВОЙ ДВИЖОК ---
+// --- СИНТЕЗАТОР ЗВУКОВ КАЗИНО ---
 const AudioEngine = {
     ctx: null,
     init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); },
 
-    // Реалистичный звук соударения тяжелых глиняных фишек (двойной пластиковый клик с эхом)
     playChipSound() {
         this.init();
         const now = this.ctx.currentTime;
-
-        // Первая фишка падает
-        this.createSingleChipImpact(now);
-        // Вторая фишка ударяется о неё с микрозадержкой в 0.012 сек
-        this.createSingleChipImpact(now + 0.012);
+        this.createClink(now, 920, 0.025);
+        this.createClink(now + 0.011, 740, 0.018);
     },
 
-    createSingleChipImpact(time) {
+    createClink(time, freq, duration) {
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         const filter = this.ctx.createBiquadFilter();
 
         osc.type = 'triangle';
-        osc.frequency.setValueAtTime(850, time);
-        osc.frequency.exponentialRampToValueAtTime(150, time + 0.03);
+        osc.frequency.setValueAtTime(freq, time);
+        osc.frequency.exponentialRampToValueAtTime(120, time + duration);
 
         filter.type = 'bandpass';
-        filter.frequency.setValueAtTime(1200, time);
+        filter.frequency.setValueAtTime(1500, time);
 
-        gain.gain.setValueAtTime(0.3, time);
-        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.035);
+        gain.gain.setValueAtTime(0.25, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
 
         osc.connect(filter);
         filter.connect(gain);
         gain.connect(this.ctx.destination);
 
         osc.start(time);
-        osc.stop(time + 0.04);
+        osc.stop(time + duration + 0.01);
     },
 
     playBallTick() {
         this.init(); const now = this.ctx.currentTime;
         const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
-        osc.type = 'sine'; osc.frequency.setValueAtTime(240, now);
-        osc.frequency.exponentialRampToValueAtTime(90, now + 0.025);
-        gain.gain.setValueAtTime(0.18, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.025);
+        osc.type = 'sine'; osc.frequency.setValueAtTime(260, now);
+        osc.frequency.exponentialRampToValueAtTime(95, now + 0.02);
+        gain.gain.setValueAtTime(0.15, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.02);
         osc.connect(gain); gain.connect(this.ctx.destination);
-        osc.start(now); osc.stop(now + 0.025);
+        osc.start(now); osc.stop(now + 0.02);
     },
 
     playWinSound() {
@@ -145,7 +139,7 @@ loginBtn.addEventListener('click', async () => {
     }
 
     loginBtn.disabled = true;
-    authErrorMsg.textContent = "ПОДКЛЮЧЕНИЕ К ОБЛАКУ...";
+    authErrorMsg.textContent = "СВЯЗЬ С СЕРВЕРОМ FIREBASE...";
 
     const cloudSave = await getFromCloud(name);
 
@@ -229,30 +223,20 @@ globalLeaderboardBtn.addEventListener('click', async () => {
 
 closeLeaderboardBtn.addEventListener('click', () => { leaderboardModal.classList.remove('active'); });
 
-// Исправленный метод запроса списка ключей для нового облака KVDB.IO
 async function renderLeaderboard() {
     try {
-        const response = await fetch(`${CLOUD_URL}/?format=json`);
+        const response = await fetch(`${FIREBASE_URL}.json`);
         if (!response.ok) throw new Error();
+        const cloudData = await response.json();
 
-        const keysList = await response.json();
-        let players = [];
-
-        // Скачиваем данные каждого зарегистрированного в мире игрока
-        for (let item of keysList) {
-            if (item.key) {
-                const pData = await getFromCloud(item.key);
-                if (pData && pData.balance !== undefined) players.push(pData);
-            }
-        }
-
-        players.sort((a, b) => b.balance - a.balance);
-        leaderboardRows.innerHTML = "";
-
-        if (players.length === 0) {
+        if (!cloudData) {
             leaderboardRows.innerHTML = `<tr><td colspan="3" style="text-align:center; opacity:0.5;">Нет VIP-гостей</td></tr>`;
             return;
         }
+
+        let players = Object.values(cloudData);
+        players.sort((a, b) => b.balance - a.balance);
+        leaderboardRows.innerHTML = "";
 
         players.forEach((p, idx) => {
             const row = document.createElement('tr');
@@ -260,7 +244,7 @@ async function renderLeaderboard() {
             leaderboardRows.appendChild(row);
         });
     } catch(e) {
-        leaderboardRows.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#ff4d4d;">ОШИБКА ОБЛАКА (ПОВТОРИТЕ ПОЗЖЕ)</td></tr>`;
+        leaderboardRows.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#ff4d4d;">ОШИБКА ОБЛАКА FIREBASE</td></tr>`;
     }
 }
 cheatConsoleBtn.addEventListener('click', async () => {
@@ -279,7 +263,7 @@ cheatConsoleBtn.addEventListener('click', async () => {
         const target = inputCode.substring(13).trim().toUpperCase();
         if (!target) return;
         try {
-            await fetch(`${CLOUD_URL}/${target}`, { method: 'DELETE' });
+            await fetch(`${FIREBASE_URL}/${target}.json`, { method: 'DELETE' });
             localStorage.removeItem(`gv_user_${target}`);
             alert(`Игрок ${target} удален.`);
             if (target === user.name) location.reload();
@@ -287,7 +271,6 @@ cheatConsoleBtn.addEventListener('click', async () => {
     } else { alert("Неверный VIP-код!"); }
 });
 
-// --- ДОКАЧЕННАЯ СИНХРОННАЯ АНИМАЦИЯ ШАРИКА И ДЕЙСТВИТЕЛЬНЫЙ РЕЗУЛЬТАТ КРУТКИ ---
 let wheelRotation = 0;
 
 spinBtn.addEventListener('click', () => {
@@ -296,14 +279,12 @@ spinBtn.addEventListener('click', () => {
     if (activeBet === 0) { statusMessage.textContent = "СДЕЛАЙТЕ СТАВКУ НА СУКНО"; return; }
 
     isSpinning = true; toggleControls(true);
-
-    // Сбрасываем подсвечивания перед новой круткой
     document.querySelectorAll('.bet-spot').forEach(spot => spot.classList.remove('winning-highlight'));
     statusMessage.textContent = "СТАВКИ СДЕЛАНЫ. КОЛЕСО ЗАПУЩЕНО";
 
     const winningIndex = Math.floor(Math.random() * 37);
     const resultSector = rouletteNumbers[winningIndex];
-    const duration = 6500; // Увеличили до 6.5 секунд для экстра-плавного затухания
+    const duration = 6500;
     const startTime = performance.now();
 
     const wheelTargetAngle = winningIndex * sectorDegrees;
@@ -317,26 +298,18 @@ spinBtn.addEventListener('click', () => {
     function animateSimulation(now) {
         const elapsed = now - startTime;
         const progress = Math.min(elapsed / duration, 1);
-
-        // Математическая функция затухания 4-й степени: шарик плавно «влипает» в ячейку в конце без рывков
         const easeOutQuint = 1 - Math.pow(1 - progress, 5);
 
-        // Вращение колеса
         const currentWheelPos = (wheelRotation - (wheelSpins + (360 - wheelTargetAngle))) + (wheelSpins + (360 - wheelTargetAngle)) * easeOutQuint;
-
-        // Шарик катится по борту, а затем замедляется и падает строго на угол своего сектора
-        const totalBallOrbits = 2520; // 7 полных оборотов
+        const totalBallOrbits = 2520;
         const currentBallPos = -(totalBallOrbits * easeOutQuint) + (wheelTargetAngle * progress);
-
-        // Идеальное сужение орбиты без колебаний
         const currentRadius = 96 - (31 * easeOutQuint);
 
         ball.style.transform = `translate(-50%, -50%) rotate(${currentBallPos}deg) translate(${currentRadius}px) rotate(${-currentBallPos}deg)`;
 
-        // Треск
         const absoluteRelativeAngle = Math.abs(currentBallPos - currentWheelPos);
         if (Math.abs(absoluteRelativeAngle - lastTickAngle) >= sectorDegrees) {
-            if (progress < 0.82) AudioEngine.playBallTick(); // Звуки затихают чуть раньше посадки в гнездо
+            if (progress < 0.82) AudioEngine.playBallTick();
             lastTickAngle = absoluteRelativeAngle;
         }
 
@@ -356,8 +329,6 @@ function finishRound(resultSector) {
 
     if (winSum > 0) AudioEngine.playWinSound();
 
-    // ФИКСАЦИЯ ДЕЙСТВИТЕЛЬНОГО РЕЗУЛЬТАТА КРУТКИ НА ИГРОВОМ ПОЛЕ
-    // Выделяется ровно то поле (Красное, Черное или Зеро), к типу которого принадлежит сектор
     const winningFieldElement = document.querySelector(`.spot-${resultSector.c}`);
     if (winningFieldElement) {
         winningFieldElement.classList.add('winning-highlight');

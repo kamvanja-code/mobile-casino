@@ -22,7 +22,6 @@ body, html {
     overflow: hidden;
 }
 
-/* Удалена старая плавающая кнопка */
 .leaderboard-trigger-btn {
     background: rgba(255, 255, 255, 0.08);
     border: 1px solid rgba(255, 215, 0, 0.4);
@@ -144,7 +143,6 @@ body, html {
     box-shadow: 0 6px 20px rgba(245, 175, 25, 0.3);
 }
 
-/* Шапка: Вертикальная ориентация для блока игрока под кнопку */
 .top-bar {
     width: 100%;
     padding: 12px 20px;
@@ -156,17 +154,8 @@ body, html {
     z-index: 10;
 }
 
-.player-tag {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-}
-
-.player-meta {
-    display: flex;
-    align-items: center;
-}
-
+.player-tag { display: flex; flex-direction: column; align-items: flex-start; }
+.player-meta { display: flex; align-items: center; }
 .vip-status { background: var(--gold-gradient); color: #000; font-size: 9px; font-weight: 800; padding: 1px 5px; border-radius: 3px; margin-right: 6px; }
 .player-tag .name { font-weight: 700; font-size: 14px; color: #e0e0e0; }
 .wallet-label { font-size: 9px; color: #8da194; font-weight: 700; }
@@ -224,7 +213,6 @@ body, html {
 .spot-title { font-size: 14px; font-weight: 800; }
 .spot-odds { font-size: 9px; opacity: 0.5; margin-top: 2px; }
 
-/* ЭФФЕКТ СВЕЧЕНИЯ ПОЛЯ ПО ДЕЙСТВИТЕЛЬНОМУ РЕЗУЛЬТАТУ КРУТКИ */
 .bet-spot.winning-highlight {
     border-color: #ffd700 !important;
     box-shadow: 0 0 25px #ffd700, inset 0 0 15px rgba(255, 215, 0, 0.6) !important;
