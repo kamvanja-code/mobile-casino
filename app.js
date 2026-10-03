@@ -1,10 +1,10 @@
-// Переменные состояния игры
+// Состояние сессии игрока
 let user = { name: "", balance: 1000 };
 let currentSelectedChip = 10;
 let bets = { red: 0, black: 0, zero: 0 };
 let isSpinning = false;
 
-// Структура колеса европейской рулетки (37 секторов в правильном порядке)
+// Полное европейское колесо (37 секторов)
 const rouletteNumbers = [
     { n: 0, c: 'zero' },  { n: 32, c: 'red' },   { n: 15, c: 'black' }, { n: 19, c: 'red' },
     { n: 4, c: 'black' },  { n: 21, c: 'red' },   { n: 2, c: 'black' },  { n: 25, c: 'red' },
@@ -18,7 +18,7 @@ const rouletteNumbers = [
     { n: 26, c: 'black' }
 ];
 
-const sectorDegrees = 360 / 37; // ~9.73 градусов на один сектор
+const sectorDegrees = 360 / 37;
 
 // DOM Элементы
 const authScreen = document.getElementById('auth-screen');
@@ -28,183 +28,193 @@ const loginBtn = document.getElementById('login-btn');
 const userNameDisplay = document.getElementById('user-name');
 const userBalanceDisplay = document.getElementById('user-balance');
 const wheel = document.getElementById('wheel');
+const ball = document.getElementById('roulette-ball');
 const statusMessage = document.getElementById('status-message');
 const spinBtn = document.getElementById('spin-btn');
 const clearBtn = document.getElementById('clear-btn');
 const refillBtn = document.getElementById('refill-btn');
 
-// Настройка динамического CSS-колеса рулетки (генерация красивого градиента)
-function generateWheelBackground() {
+// Генерация текстуры секторов колеса рулетки
+function renderWheelSectors() {
     let gradientParts = [];
     rouletteNumbers.forEach((sector, index) => {
         let startDeg = index * sectorDegrees;
         let endDeg = (index + 1) * sectorDegrees;
-        let color = sector.c === 'green' || sector.c === 'zero' ? '#008000' : (sector.c === 'red' ? '#d32f2f' : '#1a1a1a');
+        let color = sector.c === 'zero' ? '#116936' : (sector.c === 'red' ? '#bd1c1c' : '#1a1a1a');
         gradientParts.push(`${color} ${startDeg}deg ${endDeg}deg`);
     });
     wheel.style.background = `conic-gradient(${gradientParts.join(', ')})`;
 }
-generateWheelBackground();
+renderWheelSectors();
 
-// --- АВТОРИЗАЦИЯ И LOCALSTORAGE ---
+// --- СИСТЕМА РЕГИСТРАЦИИ (LOCALSTORAGE) ---
 loginBtn.addEventListener('click', () => {
-    const name = usernameInput.value.trim();
-    if (!name) return alert('Пожалуйста, введите имя!');
-
-    user.name = name;
-    const savedData = localStorage.getItem(`casino_user_${name}`);
-
-    if (savedData) {
-        user = JSON.parse(savedData);
-    } else {
-        user.balance = 1000;
-        saveUserToStorage();
+    const name = usernameInput.value.trim().toUpperCase();
+    if (!name) {
+        statusMessage.textContent = "ВВЕДИТЕ ИМЯ ДЛЯ ВХОДА";
+        return;
     }
 
-    updateUI();
+    user.name = name;
+    const cloudSave = localStorage.getItem(`grand_velvet_user_${name}`);
+
+    if (cloudSave) {
+        user = JSON.parse(cloudSave);
+    } else {
+        user.balance = 1000;
+        saveSession();
+    }
+
+    updateInterface();
     authScreen.classList.remove('active');
-    setTimeout(() => {
-        gameScreen.classList.add('active');
-    }, 400);
+    setTimeout(() => gameScreen.classList.add('active'), 400);
 });
 
-function saveUserToStorage() {
-    localStorage.setItem(`casino_user_${user.name}`, JSON.stringify(user));
+function saveSession() {
+    localStorage.setItem(`grand_velvet_user_${user.name}`, JSON.stringify(user));
 }
 
-function updateUI() {
+function updateInterface() {
     userNameDisplay.textContent = user.name;
-    userBalanceDisplay.textContent = user.balance;
+    userBalanceDisplay.textContent = user.balance.toLocaleString();
 
-    // Обновление отображения фишек на полях ставок
+    // Обновление фишек на столе
     ['red', 'black', 'zero'].forEach(type => {
-        const chipEl = document.getElementById(`bet-amount-${type}`);
+        const holder = document.getElementById(`chip-space-${type}`);
         if (bets[type] > 0) {
-            chipEl.textContent = bets[type];
-            chipEl.classList.remove('hidden');
+            holder.textContent = bets[type];
+            holder.classList.remove('hidden');
         } else {
-            chipEl.classList.add('hidden');
+            holder.classList.add('hidden');
         }
     });
 }
 
-// --- УПРАВЛЕНИЕ СТАВКАМИ ---
-// Выбор номинала фишки
-document.querySelectorAll('.chip').forEach(chip => {
+// --- СТАВКИ И ФИШКИ ---
+document.querySelectorAll('.casino-chip').forEach(chip => {
     chip.addEventListener('click', (e) => {
         if (isSpinning) return;
-        document.querySelectorAll('.chip').forEach(c => c.classList.remove('active'));
+        document.querySelectorAll('.casino-chip').forEach(c => c.classList.remove('active'));
         e.target.classList.add('active');
         currentSelectedChip = parseInt(e.target.dataset.value);
     });
 });
 
-// Клик по игровому полю (постановка ставки)
-document.querySelectorAll('.bet-option').forEach(option => {
-    option.addEventListener('click', (e) => {
+document.querySelectorAll('.bet-spot').forEach(spot => {
+    spot.addEventListener('click', () => {
         if (isSpinning) return;
-        const target = option.dataset.target;
+        const target = spot.dataset.target;
 
         if (user.balance >= currentSelectedChip) {
             user.balance -= currentSelectedChip;
             bets[target] += currentSelectedChip;
-            updateUI();
-            statusMessage.textContent = `Ставка принята!`;
+            updateInterface();
+            statusMessage.textContent = "СТАВКА ПРИНЯТА";
         } else {
-            statusMessage.textContent = `Недостаточно фишек!`;
+            statusMessage.textContent = "НЕДОСТАТОЧНО СРЕДСТВ";
         }
     });
 });
 
-// Сброс всех ставок
 clearBtn.addEventListener('click', () => {
     if (isSpinning) return;
     user.balance += (bets.red + bets.black + bets.zero);
     bets = { red: 0, black: 0, zero: 0 };
-    updateUI();
-    statusMessage.textContent = `Ставки сброшены.`;
+    updateInterface();
+    statusMessage.textContent = "СТАВКИ СБРОШЕНЫ";
 });
 
-// Бесплатный закуп фишек
 refillBtn.addEventListener('click', () => {
     if (isSpinning) return;
     user.balance += 500;
-    saveUserToStorage();
-    updateUI();
-    statusMessage.textContent = `Баланс пополнен на 500 фишек!`;
+    saveSession();
+    updateInterface();
+    statusMessage.textContent = "ДЕПОЗИТ ПОПОЛНЕН: +500\$";
 });
 
-
-// --- ЛОГИКА ВРАЩЕНИЯ И ИГРЫ ---
-let currentRotation = 0;
+// --- СИНХРОННАЯ КИНЕМАТИКА РУЛЕТКИ И ШАРИКА ---
+let wheelRotation = 0;
 
 spinBtn.addEventListener('click', () => {
     if (isSpinning) return;
 
-    const totalBet = bets.red + bets.black + bets.zero;
-    if (totalBet === 0) {
-        statusMessage.textContent = `Сделайте хотя бы одну ставку!`;
+    const activeBet = bets.red + bets.black + bets.zero;
+    if (activeBet === 0) {
+        statusMessage.textContent = "СДЕЛАЙТЕ СТАВКУ НА СУКНО";
         return;
     }
 
     isSpinning = true;
-    spinBtn.disabled = true;
-    clearBtn.disabled = true;
-    refillBtn.disabled = true;
-    statusMessage.textContent = `Ставки сделаны, колесо крутится!`;
+    toggleControls(true);
+    statusMessage.textContent = "СТАВКИ СДЕЛАНЫ. КОЛЕСО ЗАПУЩЕНО";
 
-    // 1. Выбираем случайный выигрышный сектор (индекс от 0 до 36)
+    // 1. Выбираем случайное число
     const winningIndex = Math.floor(Math.random() * 37);
-    const winningSector = rouletteNumbers[winningIndex];
+    const resultSector = rouletteNumbers[winningIndex];
 
-    // 2. Расчет угла поворота
-    // Чтобы маркер наверху указывал точно на сектор, нам нужно сместить колесо назад на этот угол.
-    const sectorAngle = winningIndex * sectorDegrees;
+    // 2. Рассчитываем вращение самого колеса (по часовой стрелке)
+    const wheelTargetAngle = winningIndex * sectorDegrees;
+    const wheelSpins = 1440; // 4 полных оборота колеса
+    wheelRotation += wheelSpins + (360 - wheelTargetAngle);
+    wheel.style.transform = `rotate(${wheelRotation}deg)`;
 
-    // Добавляем минимум 5 полных оборотов (1800 градусов) для реалистичности вращения
-    const extraSpins = 1800;
+    // 3. Запуск шарика (против часовой стрелки на внешней орбите)
+    ball.classList.remove('hidden');
 
-    // Итоговый угол поворота (вычитаем из накопленного, чтобы крутилось по часовой стрелке)
-    currentRotation += extraSpins + (360 - sectorAngle);
+    // Создаем кастомный путь анимации для шарика через CSS переменные
+    // Шарик должен сделать несколько кругов на радиусе 95px, а в конце упасть на радиус 65px в нужный сектор колеса.
+    const ballFinalAngle = -1440 - wheelTargetAngle;
 
-    // Вращаем колесо с помощью CSS
-    wheel.style.transform = `rotate(${currentRotation}deg)`;
+    // Динамически инжектим ключевые кадры для падения шарика
+    const styleSheet = document.createElement("style");
+    styleSheet.id = "ball-animation-runtime";
+    styleSheet.innerHTML = `
+        @keyframes orbitBallDynamic {
+            0% { transform: translate(-50%, -50%) rotate(0deg) translate(95px) rotate(0deg); }
+            70% { transform: translate(-50%, -50%) rotate(-1080deg) translate(92px) rotate(1080deg); }
+            85% { transform: translate(-50%, -50%) rotate(-1260deg) translate(80px) rotate(1260deg); }
+            100% { transform: translate(-50%, -50%) rotate(${ballFinalAngle}deg) translate(65px) rotate(${-ballFinalAngle}deg); }
+        }
+    `;
+    document.head.appendChild(styleSheet);
+    ball.style.animation = "orbitBallDynamic 4s cubic-bezier(0.1, 0.5, 0.15, 1) forwards";
 
-    // 3. Ждем окончания анимации (4 секунды, как прописано в CSS transition)
+    // 4. Окончание вращения через 4 секунды
     setTimeout(() => {
         isSpinning = false;
-        spinBtn.disabled = false;
-        clearBtn.disabled = false;
-        refillBtn.disabled = false;
+        toggleControls(false);
 
-        // Расчет выигрыша
-        let winnings = 0;
-        if (bets[winningSector.c] > 0) {
-            // Если ставка на цвет (красное/черное) — выплата 2х
-            if (winningSector.c === 'red' || winningSector.c === 'black') {
-                winnings += bets[winningSector.c] * 2;
-            }
+        // Расчет результатов
+        let winSum = 0;
+        if (bets[resultSector.c] > 0 && (resultSector.c === 'red' || resultSector.c === 'black')) {
+            winSum += bets[resultSector.c] * 2;
         }
-        // Если выпало зеро и на него была ставка — выплата 36х (или 35 к 1)
-        if (winningSector.c === 'zero' && bets.zero > 0) {
-            winnings += bets.zero * 36;
+        if (resultSector.c === 'zero' && bets.zero > 0) {
+            winSum += bets.zero * 36;
         }
 
-        // Обновление кошелька игрока
-        user.balance += winnings;
-        saveUserToStorage();
+        user.balance += winSum;
+        saveSession();
 
-        // Отображение результатов
-        const colorName = winningSector.c === 'red' ? 'КРАСНОЕ' : (winningSector.c === 'black' ? 'ЧЕРНОЕ' : 'ЗЕРО');
-        if (winnings > 0) {
-            statusMessage.innerHTML = `Выпало: <strong style="color:#ffd700">${winningSector.n} (${colorName})</strong>. Вы выиграли <span style="color:#00c853">+${winnings}</span>!`;
+        const colorText = resultSector.c === 'red' ? 'КРАСНОЕ' : (resultSector.c === 'black' ? 'ЧЕРНОЕ' : 'ЗЕРО');
+        if (winSum > 0) {
+            statusMessage.innerHTML = `ВЫПАЛО: <span style="color:#ffd700">${resultSector.n} (${colorText})</span>. ВЫИГРЫШ: <span style="color:#22c55e">+$${winSum}</span>!`;
         } else {
-            statusMessage.innerHTML = `Выпало: <strong>${winningSector.n} (${colorName})</strong>. Повезет в следующий раз!`;
+            statusMessage.innerHTML = `ВЫПАЛО: <span style="color:#ffffff">${resultSector.n} (${colorText})</span>. СТАВКА ПРОИГРАЛА.`;
         }
 
-        // Обнуляем ставки для следующего раунда
+        // Очистка анимационных стилей и обновление данных
+        const oldStyle = document.getElementById("ball-animation-runtime");
+        if (oldStyle) oldStyle.remove();
+
         bets = { red: 0, black: 0, zero: 0 };
-        updateUI();
+        updateInterface();
 
     }, 4000);
 });
+
+function toggleControls(disabled) {
+    spinBtn.disabled = disabled;
+    clearBtn.disabled = disabled;
+    refillBtn.disabled = disabled;
+}

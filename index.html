@@ -2,80 +2,114 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Мобильная Рулетка</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Grand Velvet Casino</title>
     <link rel="stylesheet" href="css/style.css">
+    <link href="https://googleapis.com" rel="stylesheet">
 </head>
 <body>
-    <div class="app-container">
-        <!-- Экран авторизации -->
-        <div id="auth-screen" class="screen">
-            <div class="logo">🎰 LUCKY WHEEL</div>
-            <h2>Вход в казино</h2>
-            <div class="form-group">
-                <input type="text" id="username" placeholder="Введите ваш никнейм" autocomplete="off">
+
+    <!-- ЭКРАН РЕГИСТРАЦИИ / ВХОДА -->
+    <div id="auth-screen" class="screen active">
+        <div class="auth-container">
+            <div class="casino-brand">
+                <h1 class="brand-title">GRAND</h1>
+                <div class="brand-badge">VELVET</div>
+                <p class="brand-subtitle">EXCLUSIVE LOUNGE</p>
             </div>
-            <button id="login-btn" class="btn-main">Войти / Создать аккаунт</button>
+
+            <div class="auth-box">
+                <h2>Регистрация члена клуба</h2>
+                <p class="auth-notice">Введите уникальный никнейм. Прогресс и баланс автоматически привяжутся к вашему устройству.</p>
+
+                <div class="input-field">
+                    <input type="text" id="username-input" placeholder="Ваш никнейм..." maxlength="14" autocomplete="off">
+                    <span class="glow-line"></span>
+                </div>
+
+                <button id="login-btn" class="btn-premium">Получить фишки</button>
+            </div>
         </div>
+    </div>
 
-        <!-- Главный экран игры -->
-        <div id="game-screen" class="screen hidden">
-            <header class="game-header">
-                <div class="user-info">
-                    👤 <span id="display-username">Игрок</span>
+    <!-- ГЛАВНЫЙ ИГРОВОЙ ЭКРАН -->
+    <div id="game-screen" class="screen">
+        <!-- Верхний статус-бар -->
+        <header class="top-bar">
+            <div class="player-tag">
+                <span class="vip-status">VIP</span>
+                <span id="user-name" class="name">GUEST</span>
+            </div>
+            <div class="wallet">
+                <span class="wallet-label">ДЕПОЗИТ</span>
+                <div class="wallet-amount">
+                    <span id="user-balance">1,000</span>
+                    <span class="currency-sign">$</span>
                 </div>
-                <div class="balance-info">
-                    💰 <span id="balance">1000</span> фишек
-                </div>
-            </header>
+            </div>
+        </header>
 
-            <main class="game-body">
-                <!-- Рулетка -->
-                <div class="roulette-container">
-                    <div class="roulette-wheel" id="wheel">
-                        <div class="wheel-ball" id="ball"></div>
+        <!-- Игровая сцена -->
+        <main class="table-scene">
+
+            <!-- Секция с рулеткой -->
+            <div class="roulette-section">
+                <div class="roulette-wheel-container">
+                    <div class="wheel-pointer"></div>
+                    <div class="wheel-outer-rim">
+                        <div id="wheel" class="wheel-spindle">
+                            <!-- Центр колеса -->
+                            <div class="wheel-hub"></div>
+                        </div>
                     </div>
-                    <div id="result-display" class="result-display">...</div>
+                    <!-- Анимированный шарик, который будет летать снаружи -->
+                    <div id="roulette-ball" class="roulette-ball hidden"></div>
+                </div>
+            </div>
+
+            <!-- Информационное табло результатов -->
+            <div class="display-board">
+                <div id="status-message" class="ticker-message">СДЕЛАЙТЕ ВАШИ СТАВКИ</div>
+            </div>
+
+            <!-- Сукно игрового стола (Ставки) -->
+            <div class="betting-felt">
+                <div class="bet-spot spot-red" data-target="red">
+                    <span class="spot-title">RED</span>
+                    <span class="spot-odds">1 TO 1</span>
+                    <div id="chip-space-red" class="chip-holder hidden"></div>
                 </div>
 
-                <!-- Поле ставок (упрощенное под мобильные) -->
-                <div class="betting-board">
-                    <div class="board-row">
-                        <button class="bet-btn bet-number red" data-bet="1">1</button>
-                        <button class="bet-btn bet-number black" data-bet="2">2</button>
-                        <button class="bet-btn bet-number red" data-bet="3">3</button>
-                    </div>
-                    <div class="board-row">
-                        <button class="bet-btn bet-number black" data-bet="4">4</button>
-                        <button class="bet-btn bet-number red" data-bet="5">5</button>
-                        <button class="bet-btn bet-number black" data-bet="6">6</button>
-                    </div>
-                    <!-- Дополнительные простые ставки -->
-                    <div class="board-row categories">
-                        <button class="bet-btn color-red" data-bet="red">Красное</button>
-                        <button class="bet-btn color-black" data-bet="black">Черное</button>
-                    </div>
+                <div class="bet-spot spot-zero" data-target="zero">
+                    <span class="spot-title">0</span>
+                    <span class="spot-odds">35 TO 1</span>
+                    <div id="chip-space-zero" class="chip-holder hidden"></div>
                 </div>
 
-                <!-- Управление ставками -->
-                <div class="bet-controls">
-                    <div class="chip-selector">
-                        <button class="chip active" data-value="10">10</button>
-                        <button class="chip" data-value="50">50</button>
-                        <button class="chip" data-value="100">100</button>
-                    </div>
-                    <div class="current-bet-status">
-                        Ставка: <span id="current-bet-amount">0</span> ф. на [<span id="current-bet-target">-</span>]
-                    </div>
-                    <button id="spin-btn" class="btn-spin" disabled>Вращать!</button>
+                <div class="bet-spot spot-black" data-target="black">
+                    <span class="spot-title">BLACK</span>
+                    <span class="spot-odds">1 TO 1</span>
+                    <div id="chip-space-black" class="chip-holder hidden"></div>
                 </div>
-            </main>
+            </div>
 
-            <footer class="game-footer">
-                <button id="shop-btn" class="btn-secondary">Пополнить баланс (Бесплатно)</button>
-                <button id="logout-btn" class="btn-secondary">Выйти</button>
-            </footer>
-        </div>
+            <!-- Панель управления фишками и запуском -->
+            <div class="dealer-panel">
+                <div class="chips-tray">
+                    <div class="casino-chip chip-cyan active" data-value="10">10</div>
+                    <div class="casino-chip chip-magenta" data-value="50">50</div>
+                    <div class="casino-chip chip-gold" data-value="100">100</div>
+                    <div class="casino-chip chip-purple" data-value="500">500</div>
+                </div>
+
+                <div class="action-grid">
+                    <button id="clear-btn" class="action-btn btn-secondary">Сбросить</button>
+                    <button id="spin-btn" class="action-btn btn-action-spin">ЗАПУСК</button>
+                    <button id="refill-btn" class="action-btn btn-gold-refill">+500 $</button>
+                </div>
+            </div>
+
+        </main>
     </div>
 
     <script src="js/app.js"></script>
