@@ -1,87 +1,5 @@
-// 1. Создаем глобальные переменные в первую очередь, чтобы избежать ошибок инициализации
-window.user = { name: "", password: "", balance: 1000 };
-window.globalPlayersDatabase = {};
-let currentSelectedChip = 10;
-let bets = { red: 0, black: 0, zero: 0 };
-let isSpinning = false;
-
-// 2. Инициализируем сетевой синхронизатор PubNub
-const pubnub = new PubNub({
-    publishKey: "pub-c-4dbfe728-6623-455b-801c-fe9ef51a027f",
-    subscribeKey: "sub-c-57c2c892-947b-4029-bc55-e40656a84ef9",
-    userId: "casino_user_" + Math.random().toString(36).substring(2, 9)
-});
-
-// Подписываемся на единую сеть казино
-pubnub.subscribe({ channels: ["grand_velvet_network_v3"] });
-
-pubnub.addListener({
-    message: function(event) {
-        const msg = event.message;
-        if (!msg || !msg.action) return;
-
-        if (msg.action === "update_user") {
-            window.globalPlayersDatabase[msg.name] = {
-                name: msg.name,
-                password: msg.password,
-                balance: parseInt(msg.balance)
-            };
-        }
-        else if (msg.action === "request_database") {
-            if (Object.keys(window.globalPlayersDatabase).length > 0) {
-                pubnub.publish({
-                    channel: "grand_velvet_network_v3",
-                    message: { action: "share_database", database: window.globalPlayersDatabase }
-                });
-            }
-        }
-        else if (msg.action === "share_database") {
-            window.globalPlayersDatabase = Object.assign({}, window.globalPlayersDatabase, msg.database);
-        }
-        else if (msg.action === "delete_user") {
-            if (window.globalPlayersDatabase[msg.name]) {
-                delete window.globalPlayersDatabase[msg.name];
-                if (window.user && window.user.name === msg.name) location.reload();
-            }
-        }
-
-        if (window.user && window.user.name && window.globalPlayersDatabase[window.user.name]) {
-            window.user.balance = window.globalPlayersDatabase[window.user.name].balance;
-            const balDisplay = document.getElementById('user-balance');
-            if (balDisplay) balDisplay.textContent = window.user.balance.toLocaleString();
-        }
-    }
-});
-
-setTimeout(() => {
-    pubnub.publish({
-        channel: "grand_velvet_network_v3",
-        message: { action: "request_database" }
-    });
-}, 500);
-
-pubnub.history({ channel: "grand_velvet_network_v3", count: 25 }, function(status, response) {
-    if (response && response.messages) {
-        response.messages.forEach(item => {
-            const msg = item.entry;
-            if (msg && msg.action === "update_user") {
-                window.globalPlayersDatabase[msg.name] = { name: msg.name, password: msg.password, balance: parseInt(msg.balance) };
-            }
-            if (msg && msg.action === "delete_user" && window.globalPlayersDatabase[msg.name]) {
-                delete window.globalPlayersDatabase[msg.name];
-            }
-        });
-    }
-});
-
-window.sendBalanceUpdate = function() {
-    pubnub.publish({
-        channel: "grand_velvet_network_v3",
-        message: { action: "update_user", name: window.user.name, password: window.user.password, balance: window.user.balance }
-    });
-};
 // --- АУДИОДВИЖОК КАЗИНО ---
-window.AudioEngine = {
+const AudioEngine = {
     ctx: null,
     init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); },
     playChipSound() {
@@ -117,6 +35,11 @@ window.AudioEngine = {
     }
 };
 
+let user = { name: "", password: "", balance: 1000 };
+let currentSelectedChip = 10;
+let bets = { red: 0, black: 0, zero: 0 };
+let isSpinning = false;
+
 const rouletteNumbers = [
     { n: 0, c: 'zero' },  { n: 32, c: 'red' },   { n: 15, c: 'black' }, { n: 19, c: 'red' },
     { n: 4, c: 'black' },  { n: 21, c: 'red' },   { n: 2, c: 'black' },  { n: 25, c: 'red' },
@@ -130,7 +53,6 @@ const rouletteNumbers = [
     { n: 26, c: 'black' }
 ];
 const sectorDegrees = 360 / 37;
-
 const authScreen = document.getElementById('auth-screen');
 const gameScreen = document.getElementById('game-screen');
 const usernameInput = document.getElementById('username-input');
@@ -161,23 +83,31 @@ function renderWheelSectors() {
 }
 renderWheelSectors();
 
+// Автономная инерционная регистрация на устройстве
 loginBtn.addEventListener('click', () => {
-    window.AudioEngine.init();
+    AudioEngine.init();
     const name = usernameInput.value.trim().toUpperCase().replace(/[^A-Z0-9_]/g, "");
     const password = passwordInput.value.trim();
     if (!name || !password) { authErrorMsg.textContent = "ЗАПОЛНИТЕ ВСЕ ПОЛЯ"; return; }
 
-    if (window.globalPlayersDatabase[name]) {
-        if (window.globalPlayersDatabase[name].password === password) { window.user = window.globalPlayersDatabase[name]; enterCasino(); }
+    const storageKey = 'grand_velvet_local_' + name;
+    const saved = localStorage.getItem(storageKey);
+
+    if (saved) {
+        const parsed = JSON.parse(saved);
+        if (parsed.password === password) { user = parsed; enterCasino(); }
         else { authErrorMsg.textContent = "НЕВЕРНЫЙ ПАРОЛЬ"; }
     } else {
-        window.user = { name: name, password: password, balance: 1000 };
-        window.globalPlayersDatabase[name] = window.user; window.sendBalanceUpdate(); enterCasino();
+        user = { name: name, password: password, balance: 1000 };
+        saveSession(); enterCasino();
     }
 });
-function enterCasino() { updateInterface(); authScreen.classList.remove('active'); setTimeout(() => gameScreen.classList.add('active'), 400); }
+
+function enterCasino() { updateInterface(); authScreen.classList.remove('active'); setTimeout(() => gameScreen.add ? gameScreen.add('active') : gameScreen.classList.add('active'), 400); }
+function saveSession() { localStorage.setItem('grand_velvet_local_' + user.name, JSON.stringify(user)); }
+
 function updateInterface() {
-    userNameDisplay.textContent = window.user.name; userBalanceDisplay.textContent = window.user.balance.toLocaleString();
+    userNameDisplay.textContent = user.name; userBalanceDisplay.textContent = user.balance.toLocaleString();
     ['red', 'black', 'zero'].forEach(type => {
         const holder = document.getElementById('chip-space-' + type);
         if (bets[type] > 0) { holder.textContent = bets[type]; holder.classList.remove('hidden'); } else { holder.classList.add('hidden'); }
@@ -185,7 +115,7 @@ function updateInterface() {
 }
 document.querySelectorAll('.casino-chip').forEach(chip => {
     chip.addEventListener('click', (e) => {
-        if (isSpinning) return; window.AudioEngine.playChipSound();
+        if (isSpinning) return; AudioEngine.playChipSound();
         document.querySelectorAll('.casino-chip').forEach(c => c.classList.remove('active'));
         e.target.classList.add('active'); currentSelectedChip = parseInt(e.target.dataset.value);
     });
@@ -193,31 +123,37 @@ document.querySelectorAll('.casino-chip').forEach(chip => {
 document.querySelectorAll('.bet-spot').forEach(spot => {
     spot.addEventListener('click', () => {
         if (isSpinning) return; const target = spot.dataset.target;
-        if (window.user.balance >= currentSelectedChip) {
-            window.AudioEngine.playChipSound(); window.user.balance -= currentSelectedChip; bets[target] += currentSelectedChip; updateInterface(); statusMessage.textContent = "СТАВКА ПРИНЯТА";
+        if (user.balance >= currentSelectedChip) {
+            AudioEngine.playChipSound(); user.balance -= currentSelectedChip; bets[target] += currentSelectedChip; updateInterface(); statusMessage.textContent = "СТАВКА ПРИНЯТА";
         } else { statusMessage.textContent = "НЕДОСТАТОЧНО СРЕДСТВ"; }
     });
 });
 clearBtn.addEventListener('click', () => {
-    if (isSpinning) return; window.AudioEngine.playChipSound(); window.user.balance += (bets.red + bets.black + bets.zero); bets = { red: 0, black: 0, zero: 0 }; updateInterface(); statusMessage.textContent = "СТАВКИ СБРОШЕНЫ";
+    if (isSpinning) return; AudioEngine.playChipSound(); user.balance += (bets.red + bets.black + bets.zero); bets = { red: 0, black: 0, zero: 0 }; updateInterface(); statusMessage.textContent = "СТАВКИ СБРОШЕНЫ";
 });
-globalLeaderboardBtn.addEventListener('click', () => { window.AudioEngine.init(); leaderboardModal.classList.add('active'); renderLeaderboard(); });
+globalLeaderboardBtn.addEventListener('click', () => { AudioEngine.init(); leaderboardModal.classList.add('active'); renderLeaderboard(); });
 closeLeaderboardBtn.addEventListener('click', () => { leaderboardModal.classList.remove('active'); });
 
 function renderLeaderboard() {
-    let players = Object.values(window.globalPlayersDatabase); players.sort((a, b) => b.balance - a.balance); leaderboardRows.innerHTML = "";
-    if (players.length === 0) { leaderboardRows.innerHTML = '<tr><td colspan="3" style="text-align:center; opacity:0.5;">VIP-список пуст</td></tr>'; return; }
+    let players = [];
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key.startsWith("grand_velvet_local_")) {
+            try { players.push(JSON.parse(localStorage.getItem(key))); } catch(e){}
+        }
+    }
+    players.sort((a, b) => b.balance - a.balance); leaderboardRows.innerHTML = "";
     players.forEach((p, idx) => {
-        const row = document.createElement('tr'); row.innerHTML = '<td>#' + (idx + 1) + '</td><td>' + p.name + (p.name === window.user.name ? ' <span style="color:#22c55e">(Вы)</span>' : '') + '</td><td>' + parseInt(p.balance).toLocaleString() + ' $</td>'; leaderboardRows.appendChild(row);
+        const row = document.createElement('tr'); row.innerHTML = '<td>#' + (idx + 1) + '</td><td>' + p.name + (p.name === user.name ? ' <span style="color:#22c55e">(Вы)</span>' : '') + '</td><td>' + parseInt(p.balance).toLocaleString() + ' $</td>'; leaderboardRows.appendChild(row);
     });
 }
 cheatConsoleBtn.addEventListener('click', () => {
     if (isSpinning) return; const inputCode = prompt("ВВЕДИТЕ СЕКРЕТНЫЙ VIP-КОД:"); if (!inputCode) return; const cleanCode = inputCode.trim().toLowerCase();
-    if (cleanCode === "cashin") { window.user.balance += 5000; window.sendBalanceUpdate(); updateInterface(); alert("Зачислено +5,000 $"); }
-    else if (cleanCode === "cashout") { window.user.balance = Math.max(0, window.user.balance - 500); window.sendBalanceUpdate(); updateInterface(); alert("Списано -500 $"); }
+    if (cleanCode === "cashin") { user.balance += 5000; saveSession(); updateInterface(); alert("Зачислено +5,000 $"); }
+    else if (cleanCode === "cashout") { user.balance = Math.max(0, user.balance - 500); saveSession(); updateInterface(); alert("Списано -500 $"); }
     else if (cleanCode.startsWith("deleteplayer ")) {
         const target = inputCode.substring(13).trim().toUpperCase(); if (!target) return;
-        pubnub.publish({ channel: "grand_velvet_network_v3", message: { action: "delete_user", name: target } }); alert('Запрос на удаление игрока ' + target + ' отправлен.');
+        localStorage.removeItem('grand_velvet_local_' + target); alert('Игрок ' + target + ' удален.'); if (target === user.name) location.reload();
     } else { alert("Неверный VIP-код!"); }
 });
 
@@ -234,14 +170,14 @@ spinBtn.addEventListener('click', () => {
         const ballExtraOrbits = 1080; const currentBallExtra = ballExtraOrbits * Math.pow(1 - progress, 2.5); const currentBallPos = ((currentWheelPos % 360) + wheelTargetAngle + 180) - currentBallExtra; const currentRadius = 96 - (31 * easeOutQuint);
         ball.style.transform = 'translate(-50%, -50%) rotate(' + currentBallPos + 'deg) translate(' + currentRadius + 'px) rotate(' + (-currentBallPos) + 'deg)';
         const absoluteRelativeAngle = Math.abs(currentBallPos - currentWheelPos);
-        if (absoluteRelativeAngle - lastTickAngle >= sectorDegrees) { if (progress < 0.85) window.AudioEngine.playBallTick(); lastTickAngle = absoluteRelativeAngle; }
+        if (absoluteRelativeAngle - lastTickAngle >= sectorDegrees) { if (progress < 0.85) AudioEngine.playBallTick(); lastTickAngle = absoluteRelativeAngle; }
         if (progress < 1) { requestAnimationFrame(animateSimulation); } else { finishRound(resultSector); }
     }
     requestAnimationFrame(animateSimulation);
 });
 function finishRound(resultSector) {
     let winSum = 0; if (bets[resultSector.c] > 0 && (resultSector.c === 'red' || resultSector.c === 'black')) winSum += bets[resultSector.c] * 2; if (resultSector.c === 'zero' && bets.zero > 0) winSum += bets.zero * 36;
-    window.user.balance += winSum; window.sendBalanceUpdate(); if (winSum > 0) window.AudioEngine.playWinSound();
+    user.balance += winSum; saveSession(); if (winSum > 0) AudioEngine.playWinSound();
     const winningFieldElement = document.querySelector('.spot-' + resultSector.c); if (winningFieldElement) winningFieldElement.classList.add('winning-highlight');
     const colorText = resultSector.c === 'red' ? 'КРАСНОЕ' : (resultSector.c === 'black' ? 'ЧЕРНОЕ' : 'ЗЕРО');
     if (winSum > 0) { statusMessage.innerHTML = 'ВЫПАЛО: <span style="color:#ffd700">' + resultSector.n + ' (' + colorText + ')</span>. ВЫИГРЫШ: <span style="color:#22c55e">+$' + winSum + '</span>!'; }
