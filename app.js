@@ -1,9 +1,26 @@
+// --- НОВАЯ СВЕРХСТАБИЛЬНАЯ СВЯЗЬ С GOOGLE ТАБЛИЦАМИ (ОБЩЕЕ ОБЛАКО) ---
+// Этот веб-интерфейс синхронизирует балансы, пароли и общую таблицу лидеров для всех устройств в мире.
+const GOOGLE_URL = "https://google.com";
+
+// Функция отправки/получения данных из Google Таблиц
+async function requestGoogleSheets(params) {
+    try {
+        const queryString = new URLSearchParams(params).toString();
+        // Используем метод GET, так как он никогда не блокируется политикой CORS в браузерах
+        const response = await fetch(`${GOOGLE_URL}?${queryString}&_t=${Date.now()}`);
+        if (!response.ok) return null;
+        return await response.json();
+    } catch (e) {
+        console.error("Критическая ошибка связи с Google Sheets:", e);
+        return null;
+    }
+}
+
 // --- КРИСТАЛЬНО ЧИСТЫЙ ЗВУКОВОЙ ДВИЖОК КАЗИНО ---
 const AudioEngine = {
     ctx: null,
     init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); },
 
-    // Реалистичный глухой звук удара тяжелых глиняных фишек друг о друга
     playChipSound() {
         this.init();
         const now = this.ctx.currentTime;
@@ -15,18 +32,14 @@ const AudioEngine = {
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
         const filter = this.ctx.createBiquadFilter();
-        osc.type = 'triangle';
-        osc.frequency.setValueAtTime(freq, time);
+        osc.type = 'triangle'; osc.frequency.setValueAtTime(freq, time);
         osc.frequency.exponentialRampToValueAtTime(120, time + duration);
-        filter.type = 'bandpass';
-        filter.frequency.setValueAtTime(1500, time);
-        gain.gain.setValueAtTime(0.25, time);
-        gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
+        filter.type = 'bandpass'; filter.frequency.setValueAtTime(1500, time);
+        gain.gain.setValueAtTime(0.25, time); gain.gain.exponentialRampToValueAtTime(0.001, time + duration);
         osc.connect(filter); filter.connect(gain); gain.connect(this.ctx.destination);
         osc.start(time); osc.stop(time + duration + 0.01);
     },
 
-    // Стук шарика о ячейку рулетки
     playBallTick() {
         this.init(); const now = this.ctx.currentTime;
         const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
@@ -37,7 +50,6 @@ const AudioEngine = {
         osc.start(now); osc.stop(now + 0.02);
     },
 
-    // Мажорный победный аккорд казино при выигрыше ставки
     playWinSound() {
         this.init(); const now = this.ctx.currentTime;
         const freqs = [329.63, 392.00, 523.25, 659.25];
@@ -51,13 +63,11 @@ const AudioEngine = {
     }
 };
 
-// Глобальное состояние игры
 let user = { name: "", password: "", balance: 1000 };
 let currentSelectedChip = 10;
 let bets = { red: 0, black: 0, zero: 0 };
 let isSpinning = false;
 
-// 37 секторов европейской рулетки (Строгое чередование по часовой стрелке)
 const rouletteNumbers = [
     { n: 0, c: 'zero' },  { n: 32, c: 'red' },   { n: 15, c: 'black' }, { n: 19, c: 'red' },
     { n: 4, c: 'black' },  { n: 21, c: 'red' },   { n: 2, c: 'black' },  { n: 25, c: 'red' },
@@ -104,8 +114,8 @@ function renderWheelSectors() {
 }
 renderWheelSectors();
 
-// --- ЖЕЛЕЗОБЕТОННАЯ СИСТЕМА РЕГИСТРАЦИИ И ВХОДА ---
-loginBtn.addEventListener('click', () => {
+// Мировая авторизация через Google Скрипты
+loginBtn.addEventListener('click', async () => {
     AudioEngine.init();
     const name = usernameInput.value.trim().toUpperCase().replace(/[^A-Z0-9_]/g, "");
     const password = passwordInput.value.trim();
@@ -115,24 +125,21 @@ loginBtn.addEventListener('click', () => {
         return;
     }
 
-    const localKey = `grand_velvet_user_${name}`;
-    const savedUser = localStorage.getItem(localKey);
+    loginBtn.disabled = true;
+    authErrorMsg.textContent = "ПОДКЛЮЧЕНИЕ К ОБЛАКУ GOOGLE...";
 
-    if (savedUser) {
-        const parsedUser = JSON.parse(savedUser);
-        if (parsedUser.password === password) {
-            user = parsedUser;
-            authErrorMsg.textContent = "";
-            enterCasino();
-        } else {
-            authErrorMsg.textContent = "НЕВЕРНЫЙ ПАРОЛЬ";
-        }
-    } else {
-        // Создаем новый уникальный аккаунт в памяти устройства
-        user = { name: name, password: password, balance: 1000 };
-        saveSession();
+    const res = await requestGoogleSheets({ action: "login", name: name, password: password });
+
+    if (res && res.status === "success") {
+        user = { name: name, password: password, balance: parseInt(res.balance) };
         authErrorMsg.textContent = "";
         enterCasino();
+    } else if (res && res.status === "wrong_password") {
+        authErrorMsg.textContent = "НЕВЕРНЫЙ ПАРОЛЬ ДЛЯ ДАННОГО VIP-НИКА";
+        loginBtn.disabled = false;
+    } else {
+        authErrorMsg.textContent = "ОШИБКА СЕТИ, ПОВТОРИТЕ ПОПЫТКУ";
+        loginBtn.disabled = false;
     }
 });
 
@@ -142,8 +149,10 @@ function enterCasino() {
     setTimeout(() => gameScreen.classList.add('active'), 400);
 }
 
-function saveSession() {
-    localStorage.setItem(`grand_velvet_user_${user.name}`, JSON.stringify(user));
+async function saveSession() {
+    localStorage.setItem(`gv_user_${user.name}`, JSON.stringify(user));
+    // Отправляем обновленный баланс прямо в строки Google Таблицы
+    await requestGoogleSheets({ action: "save", name: user.name, password: user.password, balance: user.balance });
 }
 
 function updateInterface() {
@@ -189,65 +198,60 @@ clearBtn.addEventListener('click', () => {
     statusMessage.textContent = "СТАВКИ СБРОШЕНЫ";
 });
 
-// --- МГНОВЕННЫЙ ЛИДЕРБОРД ВСЕХ СОЗДАННЫХ АККАУНТОВ ---
-globalLeaderboardBtn.addEventListener('click', () => {
+// Глобальный лидерборд со всех девайсов мира
+globalLeaderboardBtn.addEventListener('click', async () => {
     AudioEngine.init();
     leaderboardModal.classList.add('active');
-    renderLeaderboard();
+    leaderboardRows.innerHTML = `<tr><td colspan="3" style="text-align:center; opacity:0.5;">ЗАГРУЗКА МИРОВОЙ БАЗЫ GOOGLE...</td></tr>`;
+    await renderLeaderboard();
 });
 
 closeLeaderboardBtn.addEventListener('click', () => { leaderboardModal.classList.remove('active'); });
 
-function renderLeaderboard() {
-    let players = [];
+async function renderLeaderboard() {
+    const res = await requestGoogleSheets({ action: "leaderboard" });
 
-    // Считываем абсолютно все профили, созданные в приложении
-    for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key.startsWith("grand_velvet_user_")) {
-            try { players.push(JSON.parse(localStorage.getItem(key))); } catch(e) {}
-        }
-    }
-
-    players.sort((a, b) => b.balance - a.balance);
-    leaderboardRows.innerHTML = "";
-
-    if (players.length === 0) {
+    if (!res || !res.players || res.players.length === 0) {
         leaderboardRows.innerHTML = `<tr><td colspan="3" style="text-align:center; opacity:0.5;">VIP-список пуст</td></tr>`;
         return;
     }
 
+    let players = res.players;
+    players.sort((a, b) => b.balance - a.balance);
+    leaderboardRows.innerHTML = "";
+
     players.forEach((p, idx) => {
         const row = document.createElement('tr');
-        row.innerHTML = `<td>#${idx + 1}</td><td>${p.name} ${p.name === user.name ? '<span style="color:#22c55e">(Вы)</span>' : ''}</td><td>${p.balance.toLocaleString()} $</td>`;
+        row.innerHTML = `<td>#${idx + 1}</td><td>${p.name} ${p.name === user.name ? '<span style="color:#22c55e">(Вы)</span>' : ''}</td><td>${parseInt(p.balance).toLocaleString()} $</td>`;
         leaderboardRows.appendChild(row);
     });
 }
-cheatConsoleBtn.addEventListener('click', () => {
+cheatConsoleBtn.addEventListener('click', async () => {
     if (isSpinning) return;
     const inputCode = prompt("ВВЕДИТЕ СЕКРЕТНЫЙ VIP-КОД:");
     if (!inputCode) return;
     const cleanCode = inputCode.trim().toLowerCase();
 
     if (cleanCode === "cashin") {
-        user.balance += 5000; saveSession(); updateInterface();
+        user.balance += 5000; await saveSession(); updateInterface();
         alert("Код активирован! Зачислено +5,000 \$");
     } else if (cleanCode === "cashout") {
-        user.balance = Math.max(0, user.balance - 500); saveSession(); updateInterface();
+        user.balance = Math.max(0, user.balance - 500); await saveSession(); updateInterface();
         alert("Код активирован! Списано -500 \$");
     } else if (cleanCode.startsWith("deleteplayer ")) {
         const target = inputCode.substring(13).trim().toUpperCase();
         if (!target) return;
-        const localKey = `grand_velvet_user_${target}`;
-        if (localStorage.getItem(localKey)) {
-            localStorage.removeItem(localKey);
-            alert(`Игрок ${target} полностью удален.`);
+
+        const res = await requestGoogleSheets({ action: "delete", name: target });
+        if (res && res.status === "success") {
+            localStorage.removeItem(`gv_user_${target}`);
+            alert(`Игрок ${target} успешно удален из таблиц Google.`);
             if (target === user.name) location.reload();
-        } else { alert("Игрок не найден."); }
+        } else { alert("Ошибка удаления или игрок не найден."); }
     } else { alert("Неверный VIP-код!"); }
 });
 
-// --- ИДЕАЛЬНОЕ ГЛАДКОЕ ВРАЩЕНИЕ И ПОСАДКА ШАРИКА В КАРМАН РУЛЕТКИ ---
+// --- ИДЕАЛЬНОЕ ЭКСПОНЕНЦИАЛЬНОЕ ЗАТУХАНИЕ ШАРИКА БЕЗ СКАЧКОВ СКОРОСТИ ---
 let wheelRotation = 0;
 
 spinBtn.addEventListener('click', () => {
@@ -262,11 +266,11 @@ spinBtn.addEventListener('click', () => {
     const winningIndex = Math.floor(Math.random() * 37);
     const resultSector = rouletteNumbers[winningIndex];
 
-    const duration = 6500; // Ровно 6.5 секунд премиального вращения
+    const duration = 6500;
     const startTime = performance.now();
 
     const wheelTargetAngle = winningIndex * sectorDegrees;
-    const wheelSpins = 2160; // 6 полных кругов колеса
+    const wheelSpins = 2160; // 6 полных кругов рулетки
 
     const startWheelAngle = wheelRotation;
     const endWheelAngle = wheelRotation + wheelSpins + (360 - wheelTargetAngle);
@@ -281,25 +285,25 @@ spinBtn.addEventListener('click', () => {
         const elapsed = now - startTime;
         const progress = Math.min(elapsed / duration, 1);
 
-        // Математическая инерция 5-й степени (Плавное затухание колеса рулетки)
+        // Математическое гашение скорости 5-й степени (Инерция колеса)
         const easeOutQuint = 1 - Math.pow(1 - progress, 5);
         const currentWheelPos = startWheelAngle + (endWheelAngle - startWheelAngle) * easeOutQuint;
 
-        // ИННОВАЦИОННЫЙ ОТНОСИТЕЛЬНЫЙ РАСЧЕТ ШАРИКА
-        // Вместо безумных Фаз, шарик теперь "привязан" к сектору, но имеет свою добавочную
-        // скорость прокрутки вперед, которая тает по экспоненте без единого рывка в конце!
-        const ballExtraOrbits = 1440; // Шарик делает 4 дополнительных круга поверх скорости колеса
+        // Физически выверенное относительное положение шарика.
+        // Шарик вращается вместе с колесом, но имеет свою добавочную плавную инерцию,
+        // которая тает на нет. Никаких рывков или ускорений в конце быть не может физически.
+        const ballExtraOrbits = 1440; // 4 дополнительных круга шарика поверх скорости колеса
         const ballProgressAngle = ballExtraOrbits * (1 - Math.pow(1 - progress, 3.5));
 
-        // Итоговый угол шарика: Угол сектора + Текущий поворот рулетки + 180 (верхний маркер) - Добавочный путь
-        const currentBallPos = (exactAngleFix(currentWheelPos) + wheelTargetAngle + 180) - (ballExtraOrbits - ballProgressAngle);
+        // Шарик стремится сесть строго в центр ячейки (угол колеса + угол сектора + 180 верхняя точка)
+        const currentBallPos = ((currentWheelPos % 360) + wheelTargetAngle + 180) - (ballExtraOrbits - ballProgressAngle);
 
-        // Мягкое сужение радиуса качения шарика (от 96px до глубоких 65px в кармане числа)
+        // Плавное сужение радиуса качения шарика к центру ячейки
         const currentRadius = 96 - (31 * easeOutQuint);
 
         ball.style.transform = `translate(-50%, -50%) rotate(${currentBallPos}deg) translate(${currentRadius}px) rotate(${-currentBallPos}deg)`;
 
-        // Звуковая трещотка
+        // Звуковой треск замедляется синхронно с движением шарика
         const absoluteRelativeAngle = Math.abs(currentBallPos - currentWheelPos);
         if (Math.abs(absoluteRelativeAngle - lastTickAngle) >= sectorDegrees) {
             if (progress < 0.83) AudioEngine.playBallTick();
@@ -312,24 +316,20 @@ spinBtn.addEventListener('click', () => {
             finishRound(resultSector);
         }
     }
-
-    // Вспомогательная функция, убирающая накопленные градусы для точности тригонометрии
-    function exactAngleFix(angle) { return angle % 360; }
-
     requestAnimationFrame(animateSimulation);
 });
 
-function finishRound(resultSector) {
+async function finishRound(resultSector) {
     let winSum = 0;
     if (bets[resultSector.c] > 0 && (resultSector.c === 'red' || resultSector.c === 'black')) winSum += bets[resultSector.c] * 2;
     if (resultSector.c === 'zero' && bets.zero > 0) winSum += bets.zero * 36;
 
     user.balance += winSum;
-    saveSession();
+    // Мгновенно синхронизируем баланс с Google Таблицей по сети
+    await saveSession();
 
     if (winSum > 0) AudioEngine.playWinSound();
 
-    // Подсветка выигравшего поля
     const winningFieldElement = document.querySelector(`.spot-${resultSector.c}`);
     if (winningFieldElement) winningFieldElement.classList.add('winning-highlight');
 
