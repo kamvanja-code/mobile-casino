@@ -1,44 +1,9 @@
-// --- ВЫДЕЛЕННАЯ СТАБИЛЬНАЯ МИРОВАЯ БАЗА ДАННЫХ (JSONBIN МГНОВЕННЫЙ ДОСТУП) ---
-// Этот выделенный контейнер работает на выделенных серверах без ошибок CORS.
-const BIN_ID = "66ffd3eeacd3cb34a88f5726";
-const CLOUD_URL = `https://jsonbin.io{BIN_ID}`;
-// Открытый бесплатный ключ доступа к чтению/записи
-const MASTER_KEY = "\$2a\$10\$R3vB.xQv3/B5zB2117hE8uS3O5C1V8Lp/dI0q.u8bJ9K3y1h5A7G.";
-
-// Сохранение всей базы игроков в облако
-async function saveToCloud(allPlayersData) {
-    try {
-        await fetch(CLOUD_URL, {
-            method: 'PUT',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-Master-Key': MASTER_KEY
-            },
-            body: JSON.stringify({ players: allPlayersData })
-        });
-    } catch (e) { console.error("Ошибка сохранения в облако:", e); }
-}
-
-// Получение списка всех игроков мира
-async function fetchAllPlayers() {
-    try {
-        const response = await fetch(CLOUD_URL, {
-            headers: { 'X-Master-Key': MASTER_KEY }
-        });
-        if (!response.ok) return {};
-        const resData = await response.json();
-        return resData.record.players || {};
-    } catch (e) {
-        console.error("Ошибка чтения из облака:", e);
-        return {};
-    }
-}
-
-// --- ЗВУКОВОЙ ДВИЖОК С СОУДАРЕНИЕМ ТЯЖЕЛЫХ ФИШЕК ---
+// --- КРИСТАЛЬНО ЧИСТЫЙ ЗВУКОВОЙ ДВИЖОК КАЗИНО ---
 const AudioEngine = {
     ctx: null,
     init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); },
 
+    // Реалистичный глухой звук удара тяжелых глиняных фишек друг о друга
     playChipSound() {
         this.init();
         const now = this.ctx.currentTime;
@@ -61,6 +26,7 @@ const AudioEngine = {
         osc.start(time); osc.stop(time + duration + 0.01);
     },
 
+    // Стук шарика о ячейку рулетки
     playBallTick() {
         this.init(); const now = this.ctx.currentTime;
         const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
@@ -71,6 +37,7 @@ const AudioEngine = {
         osc.start(now); osc.stop(now + 0.02);
     },
 
+    // Мажорный победный аккорд казино при выигрыше ставки
     playWinSound() {
         this.init(); const now = this.ctx.currentTime;
         const freqs = [329.63, 392.00, 523.25, 659.25];
@@ -84,11 +51,13 @@ const AudioEngine = {
     }
 };
 
+// Глобальное состояние игры
 let user = { name: "", password: "", balance: 1000 };
 let currentSelectedChip = 10;
 let bets = { red: 0, black: 0, zero: 0 };
 let isSpinning = false;
 
+// 37 секторов европейской рулетки (Строгое чередование по часовой стрелке)
 const rouletteNumbers = [
     { n: 0, c: 'zero' },  { n: 32, c: 'red' },   { n: 15, c: 'black' }, { n: 19, c: 'red' },
     { n: 4, c: 'black' },  { n: 21, c: 'red' },   { n: 2, c: 'black' },  { n: 25, c: 'red' },
@@ -135,7 +104,8 @@ function renderWheelSectors() {
 }
 renderWheelSectors();
 
-loginBtn.addEventListener('click', async () => {
+// --- ЖЕЛЕЗОБЕТОННАЯ СИСТЕМА РЕГИСТРАЦИИ И ВХОДА ---
+loginBtn.addEventListener('click', () => {
     AudioEngine.init();
     const name = usernameInput.value.trim().toUpperCase().replace(/[^A-Z0-9_]/g, "");
     const password = passwordInput.value.trim();
@@ -145,26 +115,23 @@ loginBtn.addEventListener('click', async () => {
         return;
     }
 
-    loginBtn.disabled = true;
-    authErrorMsg.textContent = "СИНХРОНИЗАЦИЯ С СЕРВЕРОМ...";
+    const localKey = `grand_velvet_user_${name}`;
+    const savedUser = localStorage.getItem(localKey);
 
-    const allPlayers = await fetchAllPlayers();
-
-    if (allPlayers && allPlayers[name]) {
-        if (allPlayers[name].password === password) {
-            user = allPlayers[name];
+    if (savedUser) {
+        const parsedUser = JSON.parse(savedUser);
+        if (parsedUser.password === password) {
+            user = parsedUser;
             authErrorMsg.textContent = "";
             enterCasino();
         } else {
-            authErrorMsg.textContent = "НЕВЕРНЫЙ ПАРОЛЬ ДЛЯ ЭТОГО VIP-НИКА";
-            loginBtn.disabled = false;
+            authErrorMsg.textContent = "НЕВЕРНЫЙ ПАРОЛЬ";
         }
     } else {
-        // Регистрируем нового игрока
+        // Создаем новый уникальный аккаунт в памяти устройства
         user = { name: name, password: password, balance: 1000 };
-        allPlayers[name] = user;
-        await saveToCloud(allPlayers);
-        localStorage.setItem(`gv_user_${user.name}`, JSON.stringify(user));
+        saveSession();
+        authErrorMsg.textContent = "";
         enterCasino();
     }
 });
@@ -175,13 +142,8 @@ function enterCasino() {
     setTimeout(() => gameScreen.classList.add('active'), 400);
 }
 
-async function saveSession() {
-    localStorage.setItem(`gv_user_${user.name}`, JSON.stringify(user));
-    const allPlayers = await fetchAllPlayers();
-    if (allPlayers) {
-        allPlayers[user.name] = user;
-        await saveToCloud(allPlayers);
-    }
+function saveSession() {
+    localStorage.setItem(`grand_velvet_user_${user.name}`, JSON.stringify(user));
 }
 
 function updateInterface() {
@@ -227,61 +189,65 @@ clearBtn.addEventListener('click', () => {
     statusMessage.textContent = "СТАВКИ СБРОШЕНЫ";
 });
 
-globalLeaderboardBtn.addEventListener('click', async () => {
+// --- МГНОВЕННЫЙ ЛИДЕРБОРД ВСЕХ СОЗДАННЫХ АККАУНТОВ ---
+globalLeaderboardBtn.addEventListener('click', () => {
     AudioEngine.init();
     leaderboardModal.classList.add('active');
-    leaderboardRows.innerHTML = `<tr><td colspan="3" style="text-align:center; opacity:0.5;">СКАЧИВАНИЕ МИРОВОГО ТОПА...</td></tr>`;
-    await renderLeaderboard();
+    renderLeaderboard();
 });
 
 closeLeaderboardBtn.addEventListener('click', () => { leaderboardModal.classList.remove('active'); });
 
-async function renderLeaderboard() {
-    const cloudData = await fetchAllPlayers();
+function renderLeaderboard() {
+    let players = [];
 
-    if (!cloudData || Object.keys(cloudData).length === 0) {
+    // Считываем абсолютно все профили, созданные в приложении
+    for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (key.startsWith("grand_velvet_user_")) {
+            try { players.push(JSON.parse(localStorage.getItem(key))); } catch(e) {}
+        }
+    }
+
+    players.sort((a, b) => b.balance - a.balance);
+    leaderboardRows.innerHTML = "";
+
+    if (players.length === 0) {
         leaderboardRows.innerHTML = `<tr><td colspan="3" style="text-align:center; opacity:0.5;">VIP-список пуст</td></tr>`;
         return;
     }
 
-    let players = Object.values(cloudData);
-    players.sort((a, b) => b.balance - a.balance);
-    leaderboardRows.innerHTML = "";
-
     players.forEach((p, idx) => {
         const row = document.createElement('tr');
-        row.innerHTML = `<td>#${idx + 1}</td><td>${p.name} ${p.name === user.name ? '<span style="color:#22c55e">(Вы)</span>' : ''}</td><td>${parseInt(p.balance).toLocaleString()} $</td>`;
+        row.innerHTML = `<td>#${idx + 1}</td><td>${p.name} ${p.name === user.name ? '<span style="color:#22c55e">(Вы)</span>' : ''}</td><td>${p.balance.toLocaleString()} $</td>`;
         leaderboardRows.appendChild(row);
     });
 }
-cheatConsoleBtn.addEventListener('click', async () => {
+cheatConsoleBtn.addEventListener('click', () => {
     if (isSpinning) return;
     const inputCode = prompt("ВВЕДИТЕ СЕКРЕТНЫЙ VIP-КОД:");
     if (!inputCode) return;
     const cleanCode = inputCode.trim().toLowerCase();
 
     if (cleanCode === "cashin") {
-        user.balance += 5000; await saveSession(); updateInterface();
+        user.balance += 5000; saveSession(); updateInterface();
         alert("Код активирован! Зачислено +5,000 \$");
     } else if (cleanCode === "cashout") {
-        user.balance = Math.max(0, user.balance - 500); await saveSession(); updateInterface();
+        user.balance = Math.max(0, user.balance - 500); saveSession(); updateInterface();
         alert("Код активирован! Списано -500 \$");
     } else if (cleanCode.startsWith("deleteplayer ")) {
         const target = inputCode.substring(13).trim().toUpperCase();
         if (!target) return;
-
-        const allPlayers = await fetchAllPlayers();
-        if (allPlayers && allPlayers[target]) {
-            delete allPlayers[target];
-            await saveToCloud(allPlayers);
-            localStorage.removeItem(`gv_user_${target}`);
-            alert(`Игрок ${target} успешно удален.`);
+        const localKey = `grand_velvet_user_${target}`;
+        if (localStorage.getItem(localKey)) {
+            localStorage.removeItem(localKey);
+            alert(`Игрок ${target} полностью удален.`);
             if (target === user.name) location.reload();
         } else { alert("Игрок не найден."); }
     } else { alert("Неверный VIP-код!"); }
 });
 
-// --- ИСПРАВЛЕННАЯ ГЛАДКАЯ КИНЕМАТИКА: КАТУЧИЙ ШАРИК БЕЗ УСКОРЕНИЙ ---
+// --- ИДЕАЛЬНОЕ ГЛАДКОЕ ВРАЩЕНИЕ И ПОСАДКА ШАРИКА В КАРМАН РУЛЕТКИ ---
 let wheelRotation = 0;
 
 spinBtn.addEventListener('click', () => {
@@ -296,11 +262,11 @@ spinBtn.addEventListener('click', () => {
     const winningIndex = Math.floor(Math.random() * 37);
     const resultSector = rouletteNumbers[winningIndex];
 
-    const duration = 6500;
+    const duration = 6500; // Ровно 6.5 секунд премиального вращения
     const startTime = performance.now();
 
     const wheelTargetAngle = winningIndex * sectorDegrees;
-    const wheelSpins = 2160;
+    const wheelSpins = 2160; // 6 полных кругов колеса
 
     const startWheelAngle = wheelRotation;
     const endWheelAngle = wheelRotation + wheelSpins + (360 - wheelTargetAngle);
@@ -315,42 +281,30 @@ spinBtn.addEventListener('click', () => {
         const elapsed = now - startTime;
         const progress = Math.min(elapsed / duration, 1);
 
-        // Гашение скорости 5-й степени (Идентично для колеса и звуков)
+        // Математическая инерция 5-й степени (Плавное затухание колеса рулетки)
         const easeOutQuint = 1 - Math.pow(1 - progress, 5);
         const currentWheelPos = startWheelAngle + (endWheelAngle - startWheelAngle) * easeOutQuint;
 
-        let currentBallPos = 0;
-        let currentRadius = 96;
+        // ИННОВАЦИОННЫЙ ОТНОСИТЕЛЬНЫЙ РАСЧЕТ ШАРИКА
+        // Вместо безумных Фаз, шарик теперь "привязан" к сектору, но имеет свою добавочную
+        // скорость прокрутки вперед, которая тает по экспоненте без единого рывка в конце!
+        const ballExtraOrbits = 1440; // Шарик делает 4 дополнительных круга поверх скорости колеса
+        const ballProgressAngle = ballExtraOrbits * (1 - Math.pow(1 - progress, 3.5));
 
-        // Линейно затухающая орбита шарика без микрорывков
-        if (progress < 0.82) {
-            const totalBallOrbits = 2520;
-            currentBallPos = -(totalBallOrbits * easeOutQuint) + (wheelTargetAngle * progress);
-            currentRadius = 96 - (24 * easeOutQuint);
+        // Итоговый угол шарика: Угол сектора + Текущий поворот рулетки + 180 (верхний маркер) - Добавочный путь
+        const currentBallPos = (exactAngleFix(currentWheelPos) + wheelTargetAngle + 180) - (ballExtraOrbits - ballProgressAngle);
 
-            const absoluteRelativeAngle = Math.abs(currentBallPos - currentWheelPos);
-            if (Math.abs(absoluteRelativeAngle - lastTickAngle) >= sectorDegrees) {
-                AudioEngine.playBallTick();
-                lastTickAngle = absoluteRelativeAngle;
-            }
-        }
-        // Плавное докатывание шарика в центр выбранного кармана без изменения скорости кручения
-        else {
-            const phase2Progress = (progress - 0.82) / 0.18;
-            const easePhase2 = 1 - Math.pow(1 - phase2Progress, 3); // Плавная параболическая посадка
-
-            const exactCenterAngle = currentWheelPos + wheelTargetAngle + 180;
-            const totalBallOrbits = 2520;
-            const finalBallAngleAt82 = -(totalBallOrbits * (1 - Math.pow(1 - 0.82, 5))) + (wheelTargetAngle * 0.82);
-
-            // Интерполируем угол: шарик больше не ускоряется, а аккуратно съезжает в паз
-            currentBallPos = finalBallAngleAt82 + (exactCenterAngle - finalBallAngleAt82) * easePhase2;
-
-            const radiusAt82 = 96 - (24 * (1 - Math.pow(1 - 0.82, 5)));
-            currentRadius = radiusAt82 - ((radiusAt82 - 65) * easePhase2);
-        }
+        // Мягкое сужение радиуса качения шарика (от 96px до глубоких 65px в кармане числа)
+        const currentRadius = 96 - (31 * easeOutQuint);
 
         ball.style.transform = `translate(-50%, -50%) rotate(${currentBallPos}deg) translate(${currentRadius}px) rotate(${-currentBallPos}deg)`;
+
+        // Звуковая трещотка
+        const absoluteRelativeAngle = Math.abs(currentBallPos - currentWheelPos);
+        if (Math.abs(absoluteRelativeAngle - lastTickAngle) >= sectorDegrees) {
+            if (progress < 0.83) AudioEngine.playBallTick();
+            lastTickAngle = absoluteRelativeAngle;
+        }
 
         if (progress < 1) {
             requestAnimationFrame(animateSimulation);
@@ -358,6 +312,10 @@ spinBtn.addEventListener('click', () => {
             finishRound(resultSector);
         }
     }
+
+    // Вспомогательная функция, убирающая накопленные градусы для точности тригонометрии
+    function exactAngleFix(angle) { return angle % 360; }
+
     requestAnimationFrame(animateSimulation);
 });
 
@@ -371,10 +329,9 @@ function finishRound(resultSector) {
 
     if (winSum > 0) AudioEngine.playWinSound();
 
+    // Подсветка выигравшего поля
     const winningFieldElement = document.querySelector(`.spot-${resultSector.c}`);
-    if (winningFieldElement) {
-        winningFieldElement.classList.add('winning-highlight');
-    }
+    if (winningFieldElement) winningFieldElement.classList.add('winning-highlight');
 
     const colorText = resultSector.c === 'red' ? 'КРАСНОЕ' : (resultSector.c === 'black' ? 'ЧЕРНОЕ' : 'ЗЕРО');
     if (winSum > 0) {
