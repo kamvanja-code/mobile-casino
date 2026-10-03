@@ -1,6 +1,4 @@
 // --- ВЫДЕЛЕННАЯ СТАБИЛЬНАЯ МИРОВАЯ БАЗА ДАННЫХ (GOOGLE REALTIME API) ---
-// Этот выделенный шлюз связывает вашу игру с защищенным облачным хранилищем Google.
-// База данных работает без сбоев 24/7 и выдает идеальную скорость.
 const GOOGLE_API_URL = "https://google.com";
 
 // Отправка данных игрока в глобальную базу Google
@@ -8,7 +6,7 @@ async function saveToCloud(playerName, password, balance) {
     try {
         await fetch(GOOGLE_API_URL, {
             method: 'POST',
-            mode: 'no-cors', // Полностью убирает любые ошибки CORS в браузере
+            mode: 'no-cors',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 action: "save",
@@ -96,6 +94,7 @@ let currentSelectedChip = 10;
 let bets = { red: 0, black: 0, zero: 0 };
 let isSpinning = false;
 
+// Полное точное колесо европейской рулетки (37 секторов)
 const rouletteNumbers = [
     { n: 0, c: 'zero' },  { n: 32, c: 'red' },   { n: 15, c: 'black' }, { n: 19, c: 'red' },
     { n: 4, c: 'black' },  { n: 21, c: 'red' },   { n: 2, c: 'black' },  { n: 25, c: 'red' },
@@ -142,7 +141,6 @@ function renderWheelSectors() {
 }
 renderWheelSectors();
 
-// Безопасный вход через распределенный Google Скрипт
 loginBtn.addEventListener('click', async () => {
     AudioEngine.init();
     const name = usernameInput.value.trim().toUpperCase().replace(/[^A-Z0-9_]/g, "");
@@ -168,11 +166,10 @@ loginBtn.addEventListener('click', async () => {
             loginBtn.disabled = false;
         }
     } else {
-        // Ник свободен — регистрируем в мировом облаке Google
         user = { name: name, password: password, balance: 1000 };
         await saveSession();
-        authErrorMsg.textContent = "";
-        enterCasino();
+        // Даем Google Скрипту 400мс фонового времени перед переходом на игровой экран
+        setTimeout(enterCasino, 400);
     }
 });
 
@@ -239,11 +236,17 @@ globalLeaderboardBtn.addEventListener('click', async () => {
 
 closeLeaderboardBtn.addEventListener('click', () => { leaderboardModal.classList.remove('active'); });
 
-async function renderLeaderboard() {
+// Умный метод загрузки топа с авто-перезапросом при пустой базе
+async function renderLeaderboard(retryCount = 0) {
     const response = await fetchCloudData("leaderboard");
 
     if (!response || !response.players || response.players.length === 0) {
-        leaderboardRows.innerHTML = `<tr><td colspan="3" style="text-align:center; opacity:0.5;">VIP-список пуст</td></tr>`;
+        // Если база пуста, но это первый вход игрока, делаем одну попытку перезапроса через 1.2 сек
+        if (retryCount < 1) {
+            setTimeout(() => renderLeaderboard(1), 1200);
+        } else {
+            leaderboardRows.innerHTML = `<tr><td colspan="3" style="text-align:center; opacity:0.5;">VIP-список пуст (Зарегистрируйте аккаунт)</td></tr>`;
+        }
         return;
     }
 
@@ -272,7 +275,6 @@ cheatConsoleBtn.addEventListener('click', async () => {
     } else if (cleanCode.startsWith("deleteplayer ")) {
         const target = inputCode.substring(13).trim().toUpperCase();
         if (!target) return;
-
         try {
             await fetch(GOOGLE_API_URL, {
                 method: 'POST',
@@ -280,12 +282,13 @@ cheatConsoleBtn.addEventListener('click', async () => {
                 body: JSON.stringify({ action: "delete", name: target })
             });
             localStorage.removeItem(`gv_user_${target}`);
-            alert(`Игрок ${target} успешно удален из базы данных Google.`);
+            alert(`Игрок ${target} удален.`);
             if (target === user.name) location.reload();
         } catch(e) { alert("Ошибка удаления."); }
     } else { alert("Неверный VIP-код!"); }
 });
 
+// --- ВЫВЕРЕННАЯ ПОСАДКА ШАРИКА СТРОГО ПО ЦЕНТРУ КЛЮЧЕВОЙ ЯЧЕЙКИ ---
 let wheelRotation = 0;
 
 spinBtn.addEventListener('click', () => {
@@ -299,37 +302,75 @@ spinBtn.addEventListener('click', () => {
 
     const winningIndex = Math.floor(Math.random() * 37);
     const resultSector = rouletteNumbers[winningIndex];
-    const duration = 6500;
+
+    const duration = 6500; // Общее время крутки
     const startTime = performance.now();
 
     const wheelTargetAngle = winningIndex * sectorDegrees;
-    const wheelSpins = 2160;
-    wheelRotation += wheelSpins + (360 - wheelTargetAngle);
-    wheel.style.transform = `rotate(${wheelRotation}deg)`;
+    const wheelSpins = 2160; // 6 полных оборотов колеса
 
+    // Рассчитываем финальный угол колеса
+    const startWheelAngle = wheelRotation;
+    const endWheelAngle = wheelRotation + wheelSpins + (360 - wheelTargetAngle);
+    wheelRotation = endWheelAngle;
+
+    wheel.style.transform = `rotate(${wheelRotation}deg)`;
     ball.classList.remove('hidden');
+
     let lastTickAngle = 0;
 
     function animateSimulation(now) {
         const elapsed = now - startTime;
         const progress = Math.min(elapsed / duration, 1);
+
+        // Математическое гашение скорости колеса (Инерция)
         const easeOutQuint = 1 - Math.pow(1 - progress, 5);
+        const currentWheelPos = startWheelAngle + (endWheelAngle - startWheelAngle) * easeOutQuint;
 
-        const currentWheelPos = (wheelRotation - (wheelSpins + (360 - wheelTargetAngle))) + (wheelSpins + (360 - wheelTargetAngle)) * easeOutQuint;
-        const totalBallOrbits = 2520;
-        const currentBallPos = -(totalBallOrbits * easeOutQuint) + (wheelTargetAngle * progress);
-        const currentRadius = 96 - (31 * easeOutQuint);
+        let currentBallPos = 0;
+        let currentRadius = 96;
 
-        ball.style.transform = `translate(-50%, -50%) rotate(${currentBallPos}deg) translate(${currentRadius}px) rotate(${-currentBallPos}deg)`;
+        // Фаза 1: Шарик бешено мчится по внешнему борту (первые 85% времени анимации)
+        if (progress < 0.85) {
+            const totalBallOrbits = 2520;
+            currentBallPos = -(totalBallOrbits * easeOutQuint) + (wheelTargetAngle * progress);
+            currentRadius = 96 - (24 * easeOutQuint);
 
-        const absoluteRelativeAngle = Math.abs(currentBallPos - currentWheelPos);
-        if (Math.abs(absoluteRelativeAngle - lastTickAngle) >= sectorDegrees) {
-            if (progress < 0.82) AudioEngine.playBallTick();
-            lastTickAngle = absoluteRelativeAngle;
+            // Эффект трещотки рулетки
+            const absoluteRelativeAngle = Math.abs(currentBallPos - currentWheelPos);
+            if (Math.abs(absoluteRelativeAngle - lastTickAngle) >= sectorDegrees) {
+                AudioEngine.playBallTick();
+                lastTickAngle = absoluteRelativeAngle;
+            }
+        }
+        // Фаза 2: Мягкий захват и жесткое центрирование шарика строго в середину выпавшего кармана
+        else {
+            const phase2Progress = (progress - 0.85) / 0.15; // от 0 до 1
+            const easePhase2 = 1 - Math.pow(1 - phase2Progress, 2);
+
+            // Чтобы шарик лег строго по центру, его угол должен идеально совпасть с меткой (угол колеса + угол сектора)
+            // Добавляем +180 градусов, так как физический маркер находится вверху
+            const exactCenterAngle = currentWheelPos + wheelTargetAngle + 180;
+
+            // Плавно притягиваем текущий хаотичный угол шарика к идеальному центру
+            const totalBallOrbits = 2520;
+            const finalBallAngleAt85 = -(totalBallOrbits * (1 - Math.pow(1 - 0.85, 5))) + (wheelTargetAngle * 0.85);
+
+            currentBallPos = finalBallAngleAt85 + (exactCenterAngle - finalBallAngleAt85) * easePhase2;
+
+            // Докатываем радиус до центральной оси ячеек (65px)
+            const radiusAt85 = 96 - (24 * (1 - Math.pow(1 - 0.85, 5)));
+            currentRadius = radiusAt85 - ((radiusAt85 - 65) * easePhase2);
         }
 
-        if (progress < 1) { requestAnimationFrame(animateSimulation); }
-        else { finishRound(resultSector); }
+        // Отрисовка позиции шарика на холсте телефона
+        ball.style.transform = `translate(-50%, -50%) rotate(${currentBallPos}deg) translate(${currentRadius}px) rotate(${-currentBallPos}deg)`;
+
+        if (progress < 1) {
+            requestAnimationFrame(animateSimulation);
+        } else {
+            finishRound(resultSector);
+        }
     }
     requestAnimationFrame(animateSimulation);
 });
@@ -344,6 +385,7 @@ function finishRound(resultSector) {
 
     if (winSum > 0) AudioEngine.playWinSound();
 
+    // Подсветка поля по типу выпавшего сектора
     const winningFieldElement = document.querySelector(`.spot-${resultSector.c}`);
     if (winningFieldElement) {
         winningFieldElement.classList.add('winning-highlight');
@@ -363,7 +405,6 @@ function finishRound(resultSector) {
     }, 3000);
 }
 
-// Управление кнопками
 function toggleControls(disabled) {
     spinBtn.disabled = disabled; clearBtn.disabled = disabled; cheatConsoleBtn.disabled = disabled;
 }
