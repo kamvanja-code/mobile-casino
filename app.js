@@ -25,7 +25,6 @@ pubnub.addListener({
         }
         // 2. Новое устройство просит актуальную базу данных
         else if (msg.action === "request_database") {
-            // Если у нас есть данные, отправляем их просящему
             if (Object.keys(globalPlayersDatabase).length > 0) {
                 pubnub.publish({
                     channel: "grand_velvet_network_v3",
@@ -76,7 +75,6 @@ pubnub.history({ channel: "grand_velvet_network_v3", count: 25 }, function(statu
         });
     }
 });
-
 // --- АУДИОДВИЖОК КАЗИНО ---
 const AudioEngine = {
     ctx: null,
@@ -118,6 +116,7 @@ let user = { name: "", password: "", balance: 1000 };
 let currentSelectedChip = 10;
 let bets = { red: 0, black: 0, zero: 0 };
 let isSpinning = false;
+
 const rouletteNumbers = [
     { n: 0, c: 'zero' },  { n: 32, c: 'red' },   { n: 15, c: 'black' }, { n: 19, c: 'red' },
     { n: 4, c: 'black' },  { n: 21, c: 'red' },   { n: 2, c: 'black' },  { n: 25, c: 'red' },
@@ -165,7 +164,6 @@ function renderWheelSectors() {
 }
 renderWheelSectors();
 
-// Клубный вход с точечной real-time отправкой
 loginBtn.addEventListener('click', () => {
     AudioEngine.init();
     const name = usernameInput.value.trim().toUpperCase().replace(/[^A-Z0-9_]/g, "");
@@ -184,7 +182,6 @@ loginBtn.addEventListener('click', () => {
             authErrorMsg.textContent = "НЕВЕРНЫЙ ПАРОЛЬ";
         }
     } else {
-        // Локальной записи нет — создаем игрока точечно в общую сеть
         user = { name: name, password: password, balance: 1000 };
         globalPlayersDatabase[name] = user;
 
@@ -209,7 +206,6 @@ function sendBalanceUpdate() {
         message: { action: "update_user", name: user.name, password: user.password, balance: user.balance }
     });
 }
-
 function updateInterface() {
     userNameDisplay.textContent = user.name;
     userBalanceDisplay.textContent = user.balance.toLocaleString();
@@ -277,6 +273,7 @@ function renderLeaderboard() {
         leaderboardRows.appendChild(row);
     });
 }
+
 cheatConsoleBtn.addEventListener('click', () => {
     if (isSpinning) return;
     const inputCode = prompt("ВВЕДИТЕ СЕКРЕТНЫЙ VIP-КОД:");
@@ -301,7 +298,6 @@ cheatConsoleBtn.addEventListener('click', () => {
     } else { alert("Неверный VIP-код!"); }
 });
 
-// --- ИДЕАЛЬНОЕ ОДНОФАЗНОЕ ЭКСПОНЕНЦИАЛЬНОЕ ЗАТУХАНИЕ ШАРИКА ---
 let wheelRotation = 0;
 
 spinBtn.addEventListener('click', () => {
@@ -315,56 +311,38 @@ spinBtn.addEventListener('click', () => {
 
     const winningIndex = Math.floor(Math.random() * 37);
     const resultSector = rouletteNumbers[winningIndex];
-
-    const duration = 6500;
-    const startTime = performance.now();
+    const duration = 6500; const startTime = performance.now();
 
     const wheelTargetAngle = winningIndex * sectorDegrees;
     const wheelSpins = 2160;
-
     const startWheelAngle = wheelRotation;
     const endWheelAngle = wheelRotation + wheelSpins + (360 - wheelTargetAngle);
     wheelRotation = endWheelAngle;
 
     wheel.style.transform = `rotate(${wheelRotation}deg)`;
     ball.classList.remove('hidden');
-
     let lastTickAngle = 0;
 
     function animateSimulation(now) {
-        const elapsed = now - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-
-        // Гашение скорости колеса 5-й степени (Инерция без рывков)
+        const elapsed = now - startTime; const progress = Math.min(elapsed / duration, 1);
         const easeOutQuint = 1 - Math.pow(1 - progress, 5);
         const currentWheelPos = startWheelAngle + (endWheelAngle - startWheelAngle) * easeOutQuint;
 
-        // Физическое отставание шарика от сектора.
-        // Шарик делает ровно 3 круга обгона рулетки, скорость тает по экспоненте 2.5 степени.
-        // В конце progress становится равным 1, добавочный путь равен 0, и шарик застывает в секторе.
         const ballExtraOrbits = 1080;
         const currentBallExtra = ballExtraOrbits * Math.pow(1 - progress, 2.5);
-
-        // Математически точная посадка в центр кармана: (Поворот рулетки % 360) + Сектор + Половина круга (180) - Добавочный путь
         const currentBallPos = ((currentWheelPos % 360) + wheelTargetAngle + 180) - currentBallExtra;
-
-        // Идеологически гладкое сужение орбиты от бортика (96px) до паза (65px)
         const currentRadius = 96 - (31 * easeOutQuint);
 
         ball.style.transform = `translate(-50%, -50%) rotate(${currentBallPos}deg) translate(${currentRadius}px) rotate(${-currentBallPos}deg)`;
 
-        // Трещотка рулетки
         const absoluteRelativeAngle = Math.abs(currentBallPos - currentWheelPos);
         if (Math.abs(absoluteRelativeAngle - lastTickAngle) >= sectorDegrees) {
             if (progress < 0.85) AudioEngine.playBallTick();
             lastTickAngle = absoluteRelativeAngle;
         }
 
-        if (progress < 1) {
-            requestAnimationFrame(animateSimulation);
-        } else {
-            finishRound(resultSector);
-        }
+        if (progress < 1) { requestAnimationFrame(animateSimulation); }
+        else { finishRound(resultSector); }
     }
     requestAnimationFrame(animateSimulation);
 });
@@ -374,9 +352,7 @@ function finishRound(resultSector) {
     if (bets[resultSector.c] > 0 && (resultSector.c === 'red' || resultSector.c === 'black')) winSum += bets[resultSector.c] * 2;
     if (resultSector.c === 'zero' && bets.zero > 0) winSum += bets.zero * 36;
 
-    user.balance += winSum;
-    sendBalanceUpdate(); // Мгновенно шлём обновление баланса в общую сеть
-
+    user.balance += winSum; sendBalanceUpdate();
     if (winSum > 0) AudioEngine.playWinSound();
 
     const winningFieldElement = document.querySelector(`.spot-${resultSector.c}`);
