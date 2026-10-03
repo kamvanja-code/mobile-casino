@@ -22,23 +22,20 @@ body, html {
     overflow: hidden;
 }
 
-/* Кнопка ТОПа перенесена в левый нижний угол экрана, над панелью ставок */
+/* Удалена старая плавающая кнопка */
 .leaderboard-trigger-btn {
-    position: absolute;
-    bottom: 175px;
-    left: 15px;
-    z-index: 100;
-    background: rgba(0, 0, 0, 0.6);
+    background: rgba(255, 255, 255, 0.08);
     border: 1px solid rgba(255, 215, 0, 0.4);
     color: #ffd700;
-    padding: 10px 16px;
-    border-radius: 20px;
-    font-size: 11px;
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 10px;
     font-weight: 800;
     cursor: pointer;
-    backdrop-filter: blur(5px);
+    margin-top: 4px;
     transition: all 0.2s ease;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+    display: inline-block;
+    text-transform: uppercase;
 }
 
 .leaderboard-trigger-btn:hover {
@@ -147,6 +144,7 @@ body, html {
     box-shadow: 0 6px 20px rgba(245, 175, 25, 0.3);
 }
 
+/* Шапка: Вертикальная ориентация для блока игрока под кнопку */
 .top-bar {
     width: 100%;
     padding: 12px 20px;
@@ -158,8 +156,19 @@ body, html {
     z-index: 10;
 }
 
+.player-tag {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+}
+
+.player-meta {
+    display: flex;
+    align-items: center;
+}
+
 .vip-status { background: var(--gold-gradient); color: #000; font-size: 9px; font-weight: 800; padding: 1px 5px; border-radius: 3px; margin-right: 6px; }
-.player-tag .name { font-weight: 700; font-size: 13px; color: #e0e0e0; }
+.player-tag .name { font-weight: 700; font-size: 14px; color: #e0e0e0; }
 .wallet-label { font-size: 9px; color: #8da194; font-weight: 700; }
 .wallet-amount { font-size: 18px; font-weight: 800; display: flex; align-items: center; gap: 2px; }
 .currency-sign { color: #f5af19; }
@@ -185,19 +194,7 @@ body, html {
     padding: 10px;
 }
 
-.wheel-pointer {
-    position: absolute;
-    top: -4px;
-    left: 50%;
-    transform: translateX(-50%);
-    width: 0;
-    height: 0;
-    border-left: 10px solid transparent;
-    border-right: 10px solid transparent;
-    border-top: 18px solid #ffd700;
-    z-index: 12;
-}
-
+.wheel-pointer { position: absolute; top: -4px; left: 50%; transform: translateX(-50%); width: 0; height: 0; border-left: 10px solid transparent; border-right: 10px solid transparent; border-top: 18px solid #ffd700; z-index: 12; }
 .wheel-outer-rim { width: 100%; height: 100%; border-radius: 50%; background: linear-gradient(135deg, #4a3728 0%, #1f140e 100%); border: 3px solid #ffd700; padding: 5px; }
 .wheel-spindle { width: 100%; height: 100%; border-radius: 50%; transition: transform 6s cubic-bezier(0.1, 0.4, 0.1, 1); position: relative; }
 .wheel-hub { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 44px; height: 44px; border-radius: 50%; background: radial-gradient(circle, #f5af19 0%, #2b1a01 100%); border: 2px solid #ffd700; z-index: 4; }
@@ -205,7 +202,7 @@ body, html {
 .display-board { width: 85%; max-width: 340px; background: rgba(0, 0, 0, 0.8); border: 1px solid rgba(255, 215, 0, 0.2); border-radius: 30px; padding: 8px 20px; text-align: center; }
 .ticker-message { font-size: 11px; font-weight: 800; letter-spacing: 1px; color: #ffd700; }
 
-.betting-felt { width: 92%; max-width: 400px; display: flex; gap: 10px; perspective: 400px; margin-bottom: 45px; }
+.betting-felt { width: 92%; max-width: 400px; display: flex; gap: 10px; perspective: 400px; margin-bottom: 25px; }
 .bet-spot {
     flex: 1;
     height: 80px;
@@ -227,11 +224,11 @@ body, html {
 .spot-title { font-size: 14px; font-weight: 800; }
 .spot-odds { font-size: 9px; opacity: 0.5; margin-top: 2px; }
 
-/* ЭФФЕКТ ПОДСВЕЧИВАНИЯ ВЫИГРАВШЕГО ПОЛЯ СТАВКИ */
+/* ЭФФЕКТ СВЕЧЕНИЯ ПОЛЯ ПО ДЕЙСТВИТЕЛЬНОМУ РЕЗУЛЬТАТУ КРУТКИ */
 .bet-spot.winning-highlight {
     border-color: #ffd700 !important;
-    box-shadow: 0 0 25px #ffd700, inset 0 0 15px rgba(255, 215, 0, 0.5) !important;
-    transform: rotateX(15deg) scale(1.05);
+    box-shadow: 0 0 25px #ffd700, inset 0 0 15px rgba(255, 215, 0, 0.6) !important;
+    transform: rotateX(15deg) scale(1.06);
     z-index: 10;
 }
 

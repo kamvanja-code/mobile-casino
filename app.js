@@ -1,71 +1,88 @@
-// --- КОНФИГУРАЦИЯ ГЛОБАЛЬНОЙ БАЗЫ ДАННЫХ ---
-// Уникальный идентификатор вашей игры в облаке.
-// Если захотите полностью сбросить общую базу, просто измените буквы в этой строке на любые другие.
-const CLOUD_BIN_ID = "grand_velvet_casino_v1";
-const CLOUD_URL = `https://kvstorage.biz{CLOUD_BIN_ID}`;
+// --- КОНФИГУРАЦИЯ СТАБИЛЬНОГО МИРОВОГО ОБЛАКА (KVDB.IO) ---
+// Генерируем уникальный постоянный ключ для базы данных казино
+const BUCKET_ID = "kvd_grandvelvet_casino_prod_v2";
+const CLOUD_URL = `https://kvdb.io{BUCKET_ID}`;
 
-// Синхронизация: дублируем данные в облако
 async function saveToCloud(playerName, playerData) {
     try {
-        // Отправляем данные конкретного игрока на сервер
         await fetch(`${CLOUD_URL}/${playerName}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(playerData)
         });
-    } catch (e) {
-        console.error("Ошибка сохранения в облако:", e);
-    }
+    } catch (e) { console.error("Ошибка сохранения в облако:", e); }
 }
 
-// Запрос данных игрока из облака
 async function getFromCloud(playerName) {
     try {
         const response = await fetch(`${CLOUD_URL}/${playerName}`);
         if (!response.ok) return null;
         return await response.json();
-    } catch (e) {
-        console.error("Ошибка чтения из облака:", e);
-        return null;
-    }
+    } catch (e) { console.error("Ошибка чтения из облака:", e); return null; }
 }
 
-// --- ЗВУКОВОЙ СИНТЕЗАТОР КАЗИНО ---
+// --- УЛУЧШЕННЫЙ ЗВУКОВОЙ ДВИЖОК ---
 const AudioEngine = {
     ctx: null,
     init() { if (!this.ctx) this.ctx = new (window.AudioContext || window.webkitAudioContext)(); },
+
+    // Реалистичный звук соударения тяжелых глиняных фишек (двойной пластиковый клик с эхом)
     playChipSound() {
-        this.init(); const now = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
-        osc.type = 'triangle'; osc.frequency.setValueAtTime(580, now);
-        osc.frequency.exponentialRampToValueAtTime(1200, now + 0.04);
-        gain.gain.setValueAtTime(0.2, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.05);
-        osc.connect(gain); gain.connect(this.ctx.destination);
-        osc.start(now); osc.stop(now + 0.05);
+        this.init();
+        const now = this.ctx.currentTime;
+
+        // Первая фишка падает
+        this.createSingleChipImpact(now);
+        // Вторая фишка ударяется о неё с микрозадержкой в 0.012 сек
+        this.createSingleChipImpact(now + 0.012);
     },
+
+    createSingleChipImpact(time) {
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        const filter = this.ctx.createBiquadFilter();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(850, time);
+        osc.frequency.exponentialRampToValueAtTime(150, time + 0.03);
+
+        filter.type = 'bandpass';
+        filter.frequency.setValueAtTime(1200, time);
+
+        gain.gain.setValueAtTime(0.3, time);
+        gain.gain.exponentialRampToValueAtTime(0.001, time + 0.035);
+
+        osc.connect(filter);
+        filter.connect(gain);
+        gain.connect(this.ctx.destination);
+
+        osc.start(time);
+        osc.stop(time + 0.04);
+    },
+
     playBallTick() {
         this.init(); const now = this.ctx.currentTime;
         const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
-        osc.type = 'sine'; osc.frequency.setValueAtTime(220, now);
-        osc.frequency.exponentialRampToValueAtTime(80, now + 0.03);
-        gain.gain.setValueAtTime(0.2, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.03);
+        osc.type = 'sine'; osc.frequency.setValueAtTime(240, now);
+        osc.frequency.exponentialRampToValueAtTime(90, now + 0.025);
+        gain.gain.setValueAtTime(0.18, now); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.025);
         osc.connect(gain); gain.connect(this.ctx.destination);
-        osc.start(now); osc.stop(now + 0.03);
+        osc.start(now); osc.stop(now + 0.025);
     },
+
     playWinSound() {
         this.init(); const now = this.ctx.currentTime;
         const freqs = [329.63, 392.00, 523.25, 659.25];
         freqs.forEach((f, i) => {
             const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
             osc.type = 'sine'; osc.frequency.setValueAtTime(f, now + i * 0.08);
-            gain.gain.setValueAtTime(0.15, now + i * 0.08); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
+            gain.gain.setValueAtTime(0.12, now + i * 0.08); gain.gain.exponentialRampToValueAtTime(0.001, now + 0.6);
             osc.connect(gain); gain.connect(this.ctx.destination);
             osc.start(now + i * 0.08); osc.stop(now + 0.6);
         });
     }
 };
 
-// Состояние сессии
 let user = { name: "", balance: 1000 };
 let currentSelectedChip = 10;
 let bets = { red: 0, black: 0, zero: 0 };
@@ -85,8 +102,6 @@ const rouletteNumbers = [
 ];
 
 const sectorDegrees = 360 / 37;
-
-// DOM Элементы
 const authScreen = document.getElementById('auth-screen');
 const gameScreen = document.getElementById('game-screen');
 const usernameInput = document.getElementById('username-input');
@@ -118,7 +133,7 @@ function renderWheelSectors() {
     wheel.style.background = `conic-gradient(${gradientParts.join(', ')})`;
 }
 renderWheelSectors();
-// --- ВХОД И СИНХРОНИЗАЦИЯ С ОБЛАКОМ ---
+
 loginBtn.addEventListener('click', async () => {
     AudioEngine.init();
     const name = usernameInput.value.trim().toUpperCase().replace(/[^A-Z0-9_]/g, "");
@@ -130,9 +145,8 @@ loginBtn.addEventListener('click', async () => {
     }
 
     loginBtn.disabled = true;
-    authErrorMsg.textContent = "СИНХРОНИЗАЦИЯ С ОБЛАКОМ...";
+    authErrorMsg.textContent = "ПОДКЛЮЧЕНИЕ К ОБЛАКУ...";
 
-    // Ищем игрока в глобальной базе данных
     const cloudSave = await getFromCloud(name);
 
     if (cloudSave) {
@@ -145,7 +159,6 @@ loginBtn.addEventListener('click', async () => {
             loginBtn.disabled = false;
         }
     } else {
-        // Игрок новый для всего интернета — создаем запись в облаке
         user = { name: name, password: password, balance: 1000 };
         await saveSession();
         authErrorMsg.textContent = "";
@@ -160,28 +173,20 @@ function enterCasino() {
 }
 
 async function saveSession() {
-    // Сохраняем локально для бэкапа
     localStorage.setItem(`gv_user_${user.name}`, JSON.stringify(user));
-    // Отправляем в общую базу данных для всех игроков
     await saveToCloud(user.name, user);
 }
 
 function updateInterface() {
     userNameDisplay.textContent = user.name;
     userBalanceDisplay.textContent = user.balance.toLocaleString();
-
     ['red', 'black', 'zero'].forEach(type => {
         const holder = document.getElementById(`chip-space-${type}`);
-        if (bets[type] > 0) {
-            holder.textContent = bets[type];
-            holder.classList.remove('hidden');
-        } else {
-            holder.classList.add('hidden');
-        }
+        if (bets[type] > 0) { holder.textContent = bets[type]; holder.classList.remove('hidden'); }
+        else { holder.classList.add('hidden'); }
     });
 }
 
-// Ставки
 document.querySelectorAll('.casino-chip').forEach(chip => {
     chip.addEventListener('click', (e) => {
         if (isSpinning) return;
@@ -202,9 +207,7 @@ document.querySelectorAll('.bet-spot').forEach(spot => {
             bets[target] += currentSelectedChip;
             updateInterface();
             statusMessage.textContent = "СТАВКА ПРИНЯТА";
-        } else {
-            statusMessage.textContent = "НЕДОСТАТОЧНО СРЕДСТВ";
-        }
+        } else { statusMessage.textContent = "НЕДОСТАТОЧНО СРЕДСТВ"; }
     });
 });
 
@@ -217,26 +220,31 @@ clearBtn.addEventListener('click', () => {
     statusMessage.textContent = "СТАВКИ СБРОШЕНЫ";
 });
 
-// --- ГЛОБАЛЬНЫЙ ЛИДЕРБОРД ДЛЯ ВСЕХ ПОЛЬЗОВАТЕЛЕЙ ИНТЕРНЕТА ---
 globalLeaderboardBtn.addEventListener('click', async () => {
     AudioEngine.init();
     leaderboardModal.classList.add('active');
-    leaderboardRows.innerHTML = `<tr><td colspan="3" style="text-align:center; opacity:0.5;">ЗАГРУЗКА МИРОВОГО РЕЙТИНГА...</td></tr>`;
+    leaderboardRows.innerHTML = `<tr><td colspan="3" style="text-align:center; opacity:0.5;">СКАЧИВАНИЕ ТОП-ЛИСТА...</td></tr>`;
     await renderLeaderboard();
 });
 
-closeLeaderboardBtn.addEventListener('click', () => {
-    leaderboardModal.classList.remove('active');
-});
+closeLeaderboardBtn.addEventListener('click', () => { leaderboardModal.classList.remove('active'); });
 
+// Исправленный метод запроса списка ключей для нового облака KVDB.IO
 async function renderLeaderboard() {
     try {
-        // Скачиваем весь список ключей и значений из облачного хранилища
-        const response = await fetch(CLOUD_URL);
+        const response = await fetch(`${CLOUD_URL}/?format=json`);
         if (!response.ok) throw new Error();
 
-        const cloudData = await response.json();
-        let players = Object.values(cloudData);
+        const keysList = await response.json();
+        let players = [];
+
+        // Скачиваем данные каждого зарегистрированного в мире игрока
+        for (let item of keysList) {
+            if (item.key) {
+                const pData = await getFromCloud(item.key);
+                if (pData && pData.balance !== undefined) players.push(pData);
+            }
+        }
 
         players.sort((a, b) => b.balance - a.balance);
         leaderboardRows.innerHTML = "";
@@ -252,13 +260,12 @@ async function renderLeaderboard() {
             leaderboardRows.appendChild(row);
         });
     } catch(e) {
-        leaderboardRows.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#ff4d4d;">ОШИБКА ПОДКЛЮЧЕНИЯ К ОБЛАКУ</td></tr>`;
+        leaderboardRows.innerHTML = `<tr><td colspan="3" style="text-align:center; color:#ff4d4d;">ОШИБКА ОБЛАКА (ПОВТОРИТЕ ПОЗЖЕ)</td></tr>`;
     }
 }
-// --- ЧИТ-КОДЫ С УДАЛЕНИЕМ ИЗ ОБЛАКА ---
 cheatConsoleBtn.addEventListener('click', async () => {
     if (isSpinning) return;
-    const inputCode = prompt("ВВЕДИТЕ СЕКРЕТНЫЙ VIP-КОД ИЛИ АДМИН-КОМАНДУ:");
+    const inputCode = prompt("ВВЕДИТЕ СЕКРЕТНЫЙ VIP-КОД:");
     if (!inputCode) return;
     const cleanCode = inputCode.trim().toLowerCase();
 
@@ -268,24 +275,19 @@ cheatConsoleBtn.addEventListener('click', async () => {
     } else if (cleanCode === "cashout") {
         user.balance = Math.max(0, user.balance - 500); await saveSession(); updateInterface();
         alert("Код активирован! Списано -500 \$");
-    }
-    // Глобальное удаление аккаунта администратором из общей базы данных
-    else if (cleanCode.startsWith("deleteplayer ")) {
+    } else if (cleanCode.startsWith("deleteplayer ")) {
         const target = inputCode.substring(13).trim().toUpperCase();
         if (!target) return;
-
         try {
             await fetch(`${CLOUD_URL}/${target}`, { method: 'DELETE' });
             localStorage.removeItem(`gv_user_${target}`);
-            alert(`Игрок ${target} полностью удален из мировой базы данных казино.`);
+            alert(`Игрок ${target} удален.`);
             if (target === user.name) location.reload();
-        } catch(e) {
-            alert("Не удалось связаться с сервером для удаления.");
-        }
+        } catch(e) { alert("Ошибка удаления."); }
     } else { alert("Неверный VIP-код!"); }
 });
 
-// --- ВРАЩЕНИЕ РУЛЕТКИ ---
+// --- ДОКАЧЕННАЯ СИНХРОННАЯ АНИМАЦИЯ ШАРИКА И ДЕЙСТВИТЕЛЬНЫЙ РЕЗУЛЬТАТ КРУТКИ ---
 let wheelRotation = 0;
 
 spinBtn.addEventListener('click', () => {
@@ -294,34 +296,47 @@ spinBtn.addEventListener('click', () => {
     if (activeBet === 0) { statusMessage.textContent = "СДЕЛАЙТЕ СТАВКУ НА СУКНО"; return; }
 
     isSpinning = true; toggleControls(true);
+
+    // Сбрасываем подсвечивания перед новой круткой
     document.querySelectorAll('.bet-spot').forEach(spot => spot.classList.remove('winning-highlight'));
     statusMessage.textContent = "СТАВКИ СДЕЛАНЫ. КОЛЕСО ЗАПУЩЕНО";
 
     const winningIndex = Math.floor(Math.random() * 37);
     const resultSector = rouletteNumbers[winningIndex];
-    const duration = 6000; const startTime = performance.now();
+    const duration = 6500; // Увеличили до 6.5 секунд для экстра-плавного затухания
+    const startTime = performance.now();
 
     const wheelTargetAngle = winningIndex * sectorDegrees;
-    const wheelSpins = 2160; wheelRotation += wheelSpins + (360 - wheelTargetAngle);
+    const wheelSpins = 2160;
+    wheelRotation += wheelSpins + (360 - wheelTargetAngle);
     wheel.style.transform = `rotate(${wheelRotation}deg)`;
 
     ball.classList.remove('hidden');
     let lastTickAngle = 0;
 
     function animateSimulation(now) {
-        const elapsed = now - startTime; const progress = Math.min(elapsed / duration, 1);
-        const easeOut = 1 - Math.pow(1 - progress, 3);
+        const elapsed = now - startTime;
+        const progress = Math.min(elapsed / duration, 1);
 
-        const currentWheelPos = (wheelRotation - (wheelSpins + (360 - wheelTargetAngle))) + (wheelSpins + (360 - wheelTargetAngle)) * easeOut;
-        const totalBallOrbits = 2160;
-        const currentBallPos = -(totalBallOrbits * easeOut) + (wheelTargetAngle * progress);
-        const currentRadius = 95 - (30 * easeOut);
+        // Математическая функция затухания 4-й степени: шарик плавно «влипает» в ячейку в конце без рывков
+        const easeOutQuint = 1 - Math.pow(1 - progress, 5);
+
+        // Вращение колеса
+        const currentWheelPos = (wheelRotation - (wheelSpins + (360 - wheelTargetAngle))) + (wheelSpins + (360 - wheelTargetAngle)) * easeOutQuint;
+
+        // Шарик катится по борту, а затем замедляется и падает строго на угол своего сектора
+        const totalBallOrbits = 2520; // 7 полных оборотов
+        const currentBallPos = -(totalBallOrbits * easeOutQuint) + (wheelTargetAngle * progress);
+
+        // Идеальное сужение орбиты без колебаний
+        const currentRadius = 96 - (31 * easeOutQuint);
 
         ball.style.transform = `translate(-50%, -50%) rotate(${currentBallPos}deg) translate(${currentRadius}px) rotate(${-currentBallPos}deg)`;
 
+        // Треск
         const absoluteRelativeAngle = Math.abs(currentBallPos - currentWheelPos);
         if (Math.abs(absoluteRelativeAngle - lastTickAngle) >= sectorDegrees) {
-            if (progress < 0.85) AudioEngine.playBallTick();
+            if (progress < 0.82) AudioEngine.playBallTick(); // Звуки затихают чуть раньше посадки в гнездо
             lastTickAngle = absoluteRelativeAngle;
         }
 
@@ -331,19 +346,22 @@ spinBtn.addEventListener('click', () => {
     requestAnimationFrame(animateSimulation);
 });
 
-async function finishRound(resultSector) {
+function finishRound(resultSector) {
     let winSum = 0;
     if (bets[resultSector.c] > 0 && (resultSector.c === 'red' || resultSector.c === 'black')) winSum += bets[resultSector.c] * 2;
     if (resultSector.c === 'zero' && bets.zero > 0) winSum += bets.zero * 36;
 
     user.balance += winSum;
-    // Мгновенно синхронизируем баланс с облаком после окончания крутки
-    await saveSession();
+    saveSession();
 
     if (winSum > 0) AudioEngine.playWinSound();
 
+    // ФИКСАЦИЯ ДЕЙСТВИТЕЛЬНОГО РЕЗУЛЬТАТА КРУТКИ НА ИГРОВОМ ПОЛЕ
+    // Выделяется ровно то поле (Красное, Черное или Зеро), к типу которого принадлежит сектор
     const winningFieldElement = document.querySelector(`.spot-${resultSector.c}`);
-    if (winningFieldElement) winningFieldElement.classList.add('winning-highlight');
+    if (winningFieldElement) {
+        winningFieldElement.classList.add('winning-highlight');
+    }
 
     const colorText = resultSector.c === 'red' ? 'КРАСНОЕ' : (resultSector.c === 'black' ? 'ЧЕРНОЕ' : 'ЗЕРО');
     if (winSum > 0) {
