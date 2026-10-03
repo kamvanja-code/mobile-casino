@@ -36,10 +36,8 @@ const AudioEngine = {
 
 let user = { name: "", password: "", balance: 1000 };
 let currentSelectedChip = 10;
+let bets = { red: 0, black: 0, zero: 0 };
 let isSpinning = false;
-
-let bets = { red: 0, black: 0 };
-for(let i = 0; i <= 36; i++) { bets[`num_${i}`] = 0; }
 
 const rouletteNumbers = [
     { n: 0, c: 'zero' },  { n: 32, c: 'red' },   { n: 15, c: 'black' }, { n: 19, c: 'red' },
@@ -54,6 +52,7 @@ const rouletteNumbers = [
     { n: 26, c: 'black' }
 ];
 const sectorDegrees = 360 / 37;
+
 const authScreen = document.getElementById('auth-screen');
 const gameScreen = document.getElementById('game-screen');
 const usernameInput = document.getElementById('username-input');
@@ -73,62 +72,16 @@ const leaderboardModal = document.getElementById('leaderboard-modal');
 const closeLeaderboardBtn = document.getElementById('close-leaderboard-btn');
 const leaderboardRows = document.getElementById('leaderboard-rows');
 
-function drawWheelSectorsSVG() {
+function renderWheelSectors() {
     let gradientParts = [];
-    let svgContent = `<svg width="100%" height="100%" viewBox="0 0 200 200" style="position:absolute; top:0; left:0; z-index:2;">`;
-
     rouletteNumbers.forEach((sector, index) => {
-        let startDeg = index * sectorDegrees;
-        let endDeg = (index + 1) * sectorDegrees;
+        let startDeg = index * sectorDegrees; let endDeg = (index + 1) * sectorDegrees;
         let color = sector.c === 'zero' ? '#116936' : (sector.c === 'red' ? '#bd1c1c' : '#1a1a1a');
-        gradientParts.push(`${color} ${startDeg}deg ${endDeg}deg`);
-
-        // Увеличили радиус tx/ty до 80, чтобы цифры стояли ровно по центру цветных ячеек
-        let textAngle = startDeg + (sectorDegrees / 2);
-        let rad = (textAngle - 90) * Math.PI / 180;
-        let tx = 100 + 80 * Math.cos(rad);
-        let ty = 100 + 80 * Math.sin(rad);
-
-        svgContent += `<text x="${tx}" y="${ty}" fill="#ffffff" font-size="10" font-weight="800" text-anchor="middle" dominant-baseline="central" transform="rotate(${textAngle}, ${tx}, ${ty})">${sector.n}</text>`;
+        gradientParts.push(color + ' ' + startDeg + 'deg ' + endDeg + 'deg');
     });
-
-    svgContent += `</svg><div class="wheel-hub"></div>`;
-    wheel.innerHTML = svgContent;
-    wheel.style.background = `conic-gradient(${gradientParts.join(', ')})`;
+    wheel.style.background = 'conic-gradient(' + gradientParts.join(', ') + ')';
 }
-
-// Пересборка логики заполнения стола по классической математике рулетки
-function generateFeltGrid() {
-    const grid = document.getElementById('numbers-grid');
-    if (!grid) return;
-    grid.innerHTML = "";
-
-    // В казино числа идут колонками по три штуки: (1,2,3), (4,5,6)...
-    // На ПК-столе они выстраиваются в 3 горизонтальных ряда.
-    // 1-й ряд: 3, 6, 9, 12, 15, 18, 21, 24, 27, 30, 33, 36
-    // 2-й ряд: 2, 5, 8, 11, 14, 17, 20, 23, 26, 29, 32, 35
-    // 3-й ряд: 1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34
-    const rowsLayout = [,
- ,
-        [1, 4, 7, 10, 13, 16, 19, 22, 25, 28, 31, 34]
-    ];
-
-    rowsLayout.forEach(row => {
-        row.forEach(num => {
-            const sec = rouletteNumbers.find(box => box.n === num);
-            const colClass = sec.c === 'red' ? 'bg-red' : 'bg-black';
-            const spot = document.createElement('div');
-            spot.className = `bet-spot spot-number ${colClass} num-${num}`;
-            spot.setAttribute('data-target', `num_${num}`);
-            spot.innerHTML = `<span class="spot-title">${num}</span><div id="chip-space-num_${num}" class="chip-holder hidden"></div>`;
-            grid.appendChild(spot);
-        });
-    });
-}
-
-drawWheelSectorsSVG();
-generateFeltGrid();
-
+renderWheelSectors();
 loginBtn.addEventListener('click', () => {
     AudioEngine.init();
     const name = usernameInput.value.trim().toUpperCase().replace(/[^A-Z0-9_]/g, "");
@@ -147,16 +100,14 @@ loginBtn.addEventListener('click', () => {
     }
 });
 
-function enterCasino() { updateInterface(); authScreen.classList.remove('active'); setTimeout(() => { gameScreen.classList.add('active'); setupBetSpotListeners(); }, 400); }
+function enterCasino() { updateInterface(); authScreen.classList.remove('active'); setTimeout(() => gameScreen.classList.add('active'), 400); }
 function saveSession() { localStorage.setItem('grand_velvet_local_' + user.name, JSON.stringify(user)); }
+
 function updateInterface() {
     userNameDisplay.textContent = user.name; userBalanceDisplay.textContent = user.balance.toLocaleString();
-    Object.keys(bets).forEach(key => {
-        const holder = document.getElementById('chip-space-' + key);
-        if (holder) {
-            if (bets[key] > 0) { holder.textContent = bets[key]; holder.classList.remove('hidden'); }
-            else { holder.classList.add('hidden'); }
-        }
+    ['red', 'black', 'zero'].forEach(type => {
+        const holder = document.getElementById('chip-space-' + type);
+        if (bets[type] > 0) { holder.textContent = bets[type]; holder.classList.remove('hidden'); } else { holder.classList.add('hidden'); }
     });
 }
 
@@ -168,22 +119,17 @@ document.querySelectorAll('.casino-chip').forEach(chip => {
     });
 });
 
-function setupBetSpotListeners() {
-    document.querySelectorAll('.bet-spot').forEach(spot => {
-        spot.addEventListener('click', () => {
-            if (isSpinning) return;
-            const target = spot.getAttribute('data-target');
-            if (user.balance >= currentSelectedChip) {
-                AudioEngine.playChipSound(); user.balance -= currentSelectedChip; bets[target] += currentSelectedChip; updateInterface(); statusMessage.textContent = "СТАВКА ПРИНЯТА";
-            } else { statusMessage.textContent = "НЕДОСТАТОЧНО СРЕДСТВ"; }
-        });
+document.querySelectorAll('.bet-spot').forEach(spot => {
+    spot.addEventListener('click', () => {
+        if (isSpinning) return; const target = spot.dataset.target;
+        if (user.balance >= currentSelectedChip) {
+            AudioEngine.playChipSound(); user.balance -= currentSelectedChip; bets[target] += currentSelectedChip; updateInterface(); statusMessage.textContent = "СТАВКА ПРИНЯТА";
+        } else { statusMessage.textContent = "НЕДОСТАТОЧНО СРЕДСТВ"; }
     });
-}
+});
 
 clearBtn.addEventListener('click', () => {
-    if (isSpinning) return; AudioEngine.playChipSound();
-    Object.keys(bets).forEach(key => { user.balance += bets[key]; bets[key] = 0; });
-    updateInterface(); statusMessage.textContent = "СТАВКИ СБРОШЕНЫ";
+    if (isSpinning) return; AudioEngine.playChipSound(); user.balance += (bets.red + bets.black + bets.zero); bets = { red: 0, black: 0, zero: 0 }; updateInterface(); statusMessage.textContent = "СТАВКИ СБРОШЕНЫ";
 });
 
 globalLeaderboardBtn.addEventListener('click', () => { AudioEngine.init(); leaderboardModal.classList.add('active'); renderLeaderboard(); });
@@ -199,14 +145,14 @@ function renderLeaderboard() {
     }
     players.sort((a, b) => b.balance - a.balance); leaderboardRows.innerHTML = "";
     players.forEach((p, idx) => {
-        const row = document.createElement('tr'); row.innerHTML = '<td>#' + (idx + 1) + '</td><td>' + p.name + (p.name === user.name ? ' <span style="color:#22c55e">(Вы)</span>' : '') + '</td><td>' + parseInt(p.balance).toLocaleString() + ' \$</td>'; leaderboardRows.appendChild(row);
+        const row = document.createElement('tr'); row.innerHTML = '<td>#' + (idx + 1) + '</td><td>' + p.name + (p.name === user.name ? ' <span style="color:#22c55e">(Вы)</span>' : '') + '</td><td>' + parseInt(p.balance).toLocaleString() + ' $</td>'; leaderboardRows.appendChild(row);
     });
 }
 
 cheatConsoleBtn.addEventListener('click', () => {
     if (isSpinning) return; const inputCode = prompt("ВВЕДИТЕ СЕКРЕТНЫЙ VIP-КОД:"); if (!inputCode) return; const cleanCode = inputCode.trim().toLowerCase();
-    if (cleanCode === "cashin") { user.balance += 5000; saveSession(); updateInterface(); alert("Зачислено +5,000 \$"); }
-    else if (cleanCode === "cashout") { user.balance = Math.max(0, user.balance - 500); saveSession(); updateInterface(); alert("Списано -500 \$"); }
+    if (cleanCode === "cashin") { user.balance += 5000; saveSession(); updateInterface(); alert("Зачислено +5,000 $"); }
+    else if (cleanCode === "cashout") { user.balance = Math.max(0, user.balance - 500); saveSession(); updateInterface(); alert("Списано -500 $"); }
     else if (cleanCode.startsWith("deleteplayer ")) {
         const target = inputCode.substring(13).trim().toUpperCase(); if (!target) return;
         localStorage.removeItem('grand_velvet_local_' + target); alert('Игрок ' + target + ' удален.'); if (target === user.name) location.reload();
@@ -215,22 +161,16 @@ cheatConsoleBtn.addEventListener('click', () => {
 
 let wheelRotation = 0;
 spinBtn.addEventListener('click', () => {
-    if (isSpinning) return;
-    let activeBet = 0; Object.keys(bets).forEach(k => activeBet += bets[k]);
-    if (activeBet === 0) { statusMessage.textContent = "СДЕЛАЙТЕ СТАВКУ НА СУКНО"; return; }
-
-    isSpinning = true; toggleControls(true);
-    document.querySelectorAll('.bet-spot').forEach(spot => spot.classList.remove('winning-highlight'));
-    statusMessage.textContent = "СТАВКИ СДЕЛАНЫ. КОЛЕСО ЗАПУЩЕНО";
-
+    if (isSpinning) return; const activeBet = bets.red + bets.black + bets.zero; if (activeBet === 0) { statusMessage.textContent = "СДЕЛАЙТЕ СТАВКУ НА СУКНО"; return; }
+    isSpinning = true; toggleControls(true); document.querySelectorAll('.bet-spot').forEach(spot => spot.classList.remove('winning-highlight')); statusMessage.textContent = "СТАВКИ СДЕЛАНЫ. КОЛЕСО ЗАПУЩЕНО";
     const winningIndex = Math.floor(Math.random() * 37); const resultSector = rouletteNumbers[winningIndex]; const duration = 6500; const startTime = performance.now();
     const wheelTargetAngle = winningIndex * sectorDegrees; const wheelSpins = 2160; const startWheelAngle = wheelRotation; const endWheelAngle = wheelRotation + wheelSpins + (360 - wheelTargetAngle); wheelRotation = endWheelAngle;
-    wheel.style.transform = `rotate(${wheelRotation}deg)`; ball.classList.remove('hidden'); let lastTickAngle = 0;
+    wheel.style.transform = 'rotate(' + wheelRotation + 'deg)'; ball.classList.remove('hidden'); let lastTickAngle = 0;
 
     function animateSimulation(now) {
         const elapsed = now - startTime; const progress = Math.min(elapsed / duration, 1); const easeOutQuint = 1 - Math.pow(1 - progress, 5); const currentWheelPos = startWheelAngle + (endWheelAngle - startWheelAngle) * easeOutQuint;
         const ballExtraOrbits = 1080; const currentBallExtra = ballExtraOrbits * Math.pow(1 - progress, 2.5); const currentBallPos = ((currentWheelPos % 360) + wheelTargetAngle + 180) - currentBallExtra; const currentRadius = 96 - (31 * easeOutQuint);
-        ball.style.transform = `translate(-50%, -50%) rotate(${currentBallPos}deg) translate(${currentRadius}px) rotate(${ -currentBallPos}deg)`;
+        ball.style.transform = 'translate(-50%, -50%) rotate(' + currentBallPos + 'deg) translate(' + currentRadius + 'px) rotate(' + (-currentBallPos) + 'deg)';
         const absoluteRelativeAngle = Math.abs(currentBallPos - currentWheelPos);
         if (absoluteRelativeAngle - lastTickAngle >= sectorDegrees) { if (progress < 0.85) AudioEngine.playBallTick(); lastTickAngle = absoluteRelativeAngle; }
         if (progress < 1) { requestAnimationFrame(animateSimulation); } else { finishRound(resultSector); }
@@ -239,27 +179,12 @@ spinBtn.addEventListener('click', () => {
 });
 
 function finishRound(resultSector) {
-    let winSum = 0;
-    if (bets[resultSector.c] > 0) winSum += bets[resultSector.c] * 2;
-    if (bets[`num_${resultSector.n}`] > 0) winSum += bets[`num_${resultSector.n}`] * 36;
-
-    user.balance += winSum; saveSession();
-    if (winSum > 0) AudioEngine.playWinSound();
-
-    const colorField = document.querySelector(`.spot-${resultSector.c}`);
-    if (colorField) colorField.classList.add('winning-highlight');
-
-    const numberField = document.querySelector(`.num-${resultSector.n}`);
-    if (numberField) numberField.classList.add('winning-highlight');
-
+    let winSum = 0; if (bets[resultSector.c] > 0 && (resultSector.c === 'red' || resultSector.c === 'black')) winSum += bets[resultSector.c] * 2; if (resultSector.c === 'zero' && bets.zero > 0) winSum += bets.zero * 36;
+    user.balance += winSum; saveSession(); if (winSum > 0) AudioEngine.playWinSound();
+    const winningFieldElement = document.querySelector('.spot-' + resultSector.c); if (winningFieldElement) winningFieldElement.classList.add('winning-highlight');
     const colorText = resultSector.c === 'red' ? 'КРАСНОЕ' : (resultSector.c === 'black' ? 'ЧЕРНОЕ' : 'ЗЕРО');
-    if (winSum > 0) { statusMessage.innerHTML = `ВЫПАЛО: <span style="color:#ffd700">${resultSector.n} (${colorText})</span>. ВЫИГРЫШ: <span style="color:#22c55e">+$${winSum}</span>!`; }
-    else { statusMessage.innerHTML = `ВЫПАЛО: <span style="color:#ffffff">${resultSector.n} (${colorText})</span>. СТАВКА ПРОИГРАЛА.`; }
-
-    setTimeout(() => {
-        isSpinning = false; toggleControls(false);
-        Object.keys(bets).forEach(k => bets[k] = 0); updateInterface();
-        statusMessage.textContent = "СДЕЛАЙТЕ ВАШИ СТАВКИ";
-    }, 3000);
+    if (winSum > 0) { statusMessage.innerHTML = 'ВЫПАЛО: <span style="color:#ffd700">' + resultSector.n + ' (' + colorText + ')</span>. ВЫИГРЫШ: <span style="color:#22c55e">+$' + winSum + '</span>!'; }
+    else { statusMessage.innerHTML = 'ВЫПАЛО: <span style="color:#ffffff">' + resultSector.n + ' (' + colorText + ')</span>. СТАВКА ПРОИГРАЛА.'; }
+    setTimeout(() => { isSpinning = false; toggleControls(false); bets = { red: 0, black: 0, zero: 0 }; updateInterface(); statusMessage.textContent = "СДЕЛАЙТЕ ВАШИ СТАВКИ"; }, 3000);
 }
 function toggleControls(disabled) { spinBtn.disabled = disabled; clearBtn.disabled = disabled; cheatConsoleBtn.disabled = disabled; }
